@@ -24,7 +24,7 @@ architecture detectorArch of dataConsume is
   type state_type is (S0, S1, S2, S3, S4);
   signal curState, nextState: state_type;
   signal peakvalue, newValue: std_logic_vector(7 downto 0) := "00000000";
-  signal equal, peakValueSmaller, shit_enable, count_enable, banana_enable, count_reset : bit := '0';
+  signal equal, peakValueSmaller, shift_enable, store_enable, count_enable, loop_enable, count_reset : bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal ctrlOut_reg: std_logic :='0';
   signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
@@ -38,25 +38,26 @@ begin
   combi_nextState: process(clk, curState, ctrlIn_detected, peakValueSmaller)
   begin
     
-  
     case curState is
       when S0 => --reset state
         ctrlOut_reg <= '0';
         indexpk <= 0;
-        index <= 0;
-        enable <= '1';
+        count_reset <= '0';
+        shift_enable <= '1';
         nextState <= S1; 
           
 
       when S1 =>
-        shift_enable <= '0'; 
-        banana_enable <='0'; 
+        shift_enable <= '0';
+        peakValue <= newValue;
+        loop_enable <='0'; 
+        store_enable <= '0';
         ctrlOut_reg <= not ctrlOut_reg;
         nextState <= S2;
        
       when S2 => 
         if ctrlIn_detected = '1' then   
-          enable <= '1';  
+          shit_enable <= '1';  
           count_enable  <= '1';  
           nextState <= S3; 
         else
@@ -69,38 +70,48 @@ begin
         if peakValueSmaller='1' then
           peakValue <= newValue;
           indexPk <= index;
-          banana_enable <='1';
+          loop_enable <='1';
           nextState <= S1;
         elsif peakValueSmaller='0' and equal='0' then
-          nextState <= S4;
+          store_enable <= '1';
+          nextState <= S1;
         end if;
-         
-      
-      when S4 =>
-        if indexpk = index-1 then
+           
+        
+        
+      end case;
+  end process; -- combi_nextState
+  
+------------------------------------------------------
+
+  store : process(clk, store_enable)
+  begin
+    if rising_edge(clk) and store_enable='1' then 
+       if indexpk = index-1 then
           finalResults(4) <= newValue;
         elsif indexpk = index-2 then
           finalResults(5) <= newValue;
         elsif indexpk = index-3 then
           finalResults(6) <= newValue; 
         end if;
-        nextState <= S1;       
-        
-        
-      end case;
-  end process; -- combi_nextState
+     else null;
+      end if;
+  end process;       
 
 ------------------------------------------------------
-  apple : process (clk, banana_enable)
+  
+  looper : process (clk, loop_enable)
   begin
-    if rising_edge(clk) and enable='1' then 
-        for i in 0 to 3 loop
-            finalResults(i) <= lastValues(3-i);
+    if rising_edge(clk) and loop_enable='1' then 
+        for i in  loop
+            finalResults(i) <= allData(indexpk-i);
           end loop;; 
       else null;
       end if;
   end process;     
+
 ------------------------------------------------------  
+ 
   counter : process (clk, count_enable, count_reset)
   begin
       if count_reset = '1' then
@@ -111,13 +122,14 @@ begin
   end process; 
 
 ------------------------------------------------------
-  shifting : process (clk, shift_enable)
+  
+  shifting : process (clk, shift_enable, data)
   begin
-      if rising_edge(clk) and enable='1' then 
-        for i in 3 downto 1 loop 
-            lastValues(i) <= lastValues(i-1); 
+      if rising_edge(clk) and shift_enable='1' then 
+        for i in 999 downto 1 loop 
+            allData(i) <= allData(i-1); 
         end loop;
-        lastvalues(0) <= data; 
+        allData(0) <= data; 
       else null;
       end if;
   end process;    
@@ -160,6 +172,6 @@ begin
   
   ctrlIn_detected <= ctrlIn xor ctrlIn_delayed;
 ------------------------------------------------------
-  newValue <= lastValues(0);
+  newValue <= allData(0);
 ------------------------------------------------------
 end; --myArch
