@@ -29,7 +29,7 @@ architecture detectorArch of dataConsume is
   signal ctrlOut_reg: std_logic :='0';
   signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
   signal lastValues: CHAR_ARRAY_TYPE(0 to 3);
-  signal joshValues: CHAR_ARRAY_TYPE(0 to 999); --the thing we were having arguments about 
+  signal allData: CHAR_ARRAY_TYPE(0 to 999);  
   signal indexpk, index: integer;
   
 
