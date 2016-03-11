@@ -21,21 +21,20 @@ end dataConsume;
 
 architecture detectorArch of dataConsume is
   
-  type state_type is (S0, S1, S2, S3, S4);
+  type state_type is (S0, S1, S2, S3);
   signal curState, nextState: state_type;
   signal peakvalue, newValue: std_logic_vector(7 downto 0) := "00000000";
   signal equal, peakValueSmaller, shift_enable, store_enable, count_enable, loop_enable, count_reset : bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal ctrlOut_reg: std_logic :='0';
   signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
-  signal lastValues: CHAR_ARRAY_TYPE(0 to 3);
   signal allData: CHAR_ARRAY_TYPE(0 to 999);  
   signal indexpk, index: integer;
   
 
 begin
 ------------------------------------------------------
-  combi_nextState: process(clk, curState, ctrlIn_detected, peakValueSmaller)
+  combi_nextState: process(clk, curState, ctrlIn_detected)
   begin
     
     case curState is
@@ -57,7 +56,7 @@ begin
        
       when S2 => 
         if ctrlIn_detected = '1' then   
-          shit_enable <= '1';  
+          shift_enable <= '1';  
           count_enable  <= '1';  
           nextState <= S3; 
         else
@@ -103,9 +102,9 @@ begin
   looper : process (clk, loop_enable)
   begin
     if rising_edge(clk) and loop_enable='1' then 
-        for i in  loop
-            finalResults(i) <= allData(indexpk-i);
-          end loop;; 
+          for i in 0 to 2 loop
+            finalResults(3-i) <= allData(indexpk-i);
+          end loop; 
       else null;
       end if;
   end process;     
@@ -136,7 +135,7 @@ begin
  
 
 ------------------------------------------------------
-  comparator_proc: process(clk, peakValue, newValue)
+  comparator: process(clk, peakValue, newValue)
   begin
     if peakValue = newValue then
       equal <= '1';
@@ -155,7 +154,6 @@ begin
   begin
     if reset = '1' then
       curState <= S0;
-      count_reset <='0';
       
     elsif clk'event AND clk='1' then
       curState <= nextState;
@@ -174,4 +172,4 @@ begin
 ------------------------------------------------------
   newValue <= allData(0);
 ------------------------------------------------------
-end; --myArch
+end; --detectorArch
