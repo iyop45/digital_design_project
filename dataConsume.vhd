@@ -24,17 +24,18 @@ architecture detectorArch of dataConsume is
   type state_type is (S0, S1, S2, S3, S4);
   signal curState, nextState: state_type;
   signal peakvalue, newValue: std_logic_vector(7 downto 0) := "00000000";
-  signal equal, peakValueSmaller, enable: bit := '0';
+  signal equal, peakValueSmaller, shit_enable, count_enable, banana_enable, count_reset : bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal ctrlOut_reg: std_logic :='0';
   signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
   signal lastValues: CHAR_ARRAY_TYPE(0 to 3);
+  signal joshValues: CHAR_ARRAY_TYPE(0 to 999); --the thing we were having arguments about 
   signal indexpk, index: integer;
   
 
 begin
 ------------------------------------------------------
-  combi_nextState: process(clk, curState, ctrlIn_detected, peakValueSmaller, indexpk)
+  combi_nextState: process(clk, curState, ctrlIn_detected, peakValueSmaller)
   begin
     
   
@@ -48,28 +49,27 @@ begin
           
 
       when S1 =>
-        enable <= '0';
+        shift_enable <= '0'; 
+        banana_enable <='0'; 
         ctrlOut_reg <= not ctrlOut_reg;
         nextState <= S2;
        
       when S2 => 
-        
         if ctrlIn_detected = '1' then   
-          index <= index + 1; 
-          enable <= '1';    
+          enable <= '1';  
+          count_enable  <= '1';  
           nextState <= S3; 
         else
           nextState <= S2;
         end if;
       
       when S3 =>
-        enable <= '0';
+        shift_enable <= '0';
+        count_enable  <= '0'; 
         if peakValueSmaller='1' then
           peakValue <= newValue;
           indexPk <= index;
-          for i in 0 to 3 loop
-            finalResults(i) <= lastValues(3-i);
-          end loop;
+          banana_enable <='1';
           nextState <= S1;
         elsif peakValueSmaller='0' and equal='0' then
           nextState <= S4;
@@ -91,12 +91,31 @@ begin
   end process; -- combi_nextState
 
 ------------------------------------------------------
+  apple : process (clk, banana_enable)
+  begin
+    if rising_edge(clk) and enable='1' then 
+        for i in 0 to 3 loop
+            finalResults(i) <= lastValues(3-i);
+          end loop;; 
+      else null;
+      end if;
+  end process;     
+------------------------------------------------------  
+  counter : process (clk, count_enable, count_reset)
+  begin
+      if count_reset = '1' then
+        index <= 0;
+      elsif rising_edge(clk) and count_enable='1' then 
+        index <= index + 1;
+      end if;
+  end process; 
 
-shifting : process (clk, enable)
+------------------------------------------------------
+  shifting : process (clk, shift_enable)
   begin
       if rising_edge(clk) and enable='1' then 
         for i in 3 downto 1 loop 
-            lastValues(i) <= lastvalues(i-1); 
+            lastValues(i) <= lastValues(i-1); 
         end loop;
         lastvalues(0) <= data; 
       else null;
@@ -124,6 +143,7 @@ shifting : process (clk, enable)
   begin
     if reset = '1' then
       curState <= S0;
+      count_reset <='0';
       
     elsif clk'event AND clk='1' then
       curState <= nextState;
