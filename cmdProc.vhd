@@ -331,7 +331,7 @@ begin
 	end process; -- stateChange
 	-----------------------------------------------------  
 	
-  A : entity dataProc port map(
+  B : entity dataProc port map(
 		clk	=> clk,
 		reset	=> reset,
 		rxnow	=> rxnow,
@@ -352,5 +352,4 @@ begin
 		dataResults	=> dataResults,
 		seqDone	=> seqDone
   );	
-end; -- datasend
-
+end; -- dataProc
