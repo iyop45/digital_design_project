@@ -1,3 +1,8 @@
+---
+--- author: roy miles
+--- top level entity wrapping the sub components
+---
+
 library ieee;
 use ieee.std_logic_1164.all;
 --use ieee.std_logic_arith.all;
@@ -32,47 +37,42 @@ entity cmdProc is
 end cmdProc;
 
 architecture behaviour of cmdProc is
-	signal cmdNow : std_logic := '0';
-	signal cmdDone : std_logic := '0';
-	signal cmdRecieve : std_logic := '0';
+	signal now : std_logic := '0';
+	signal done : std_logic := '0';
+	signal recieve : std_logic := '0';
 begin
-  RM : entity work.cmdParse(parseCommands) port map (
+  CP : entity work.cmdParse(parseCommands) port map (
 		      clk	=> clk,
 		      reset	=> reset,
+		      
 		      rxnow	=> rxnow,
 		      rxData	=> rxData,
-		      txData	=> txData,
 		      rxdone	=> rxdone,
-		      ovErr	=> ovErr,
-		      framErr	=> framErr,
+		      
+		      txData	=> txData,
 		      txnow	=> txnow,
 		      txdone	=> txdone,
-		      start	=> start,
 		      numWords_bcd	=> numWords_bcd,
-		      dataReady	=> dataReady,
-		      byte	=> byte,
-		      maxIndex	=> maxIndex,
-		      dataResults	=> dataResults,
-		      seqDone	=> seqDone          
+		      
+		      cmdNow => now,     
+		      cmdDone => done, 
+		      cmdRecieve => recieve      
         );
-  JC : entity work.dataProc(processData) port map (      
+  DP : entity work.dataProc(processData) port map (      
 		      clk	=> clk,
 		      reset	=> reset,
-		      rxnow	=> rxnow,
-		      rxData	=> rxData,
+
 		      txData	=> txData,
-		      rxdone	=> rxdone,
-		      ovErr	=> ovErr,
-		      framErr	=> framErr,
 		      txnow	=> txnow,
 		      txdone	=> txdone,
+		      
 		      start	=> start,
-		      numWords_bcd	=> numWords_bcd,
 		      dataReady	=> dataReady,
 		      byte	=> byte,
-		      maxIndex	=> maxIndex,
-		      dataResults	=> dataResults,
-		      seqDone	=> seqDone   
+		      
+		      cmdNow => now,     
+		      cmdDone => done, 
+		      cmdRecieve => recieve  
         );
 
 end;
