@@ -1,5 +1,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.std_logic
 use work.common_pack.all;
 
 entity dataConsume is
@@ -59,10 +60,8 @@ begin
           seqDone <= '1';
           store_enable <= '1';
           nextState <= S0;
-        else 
-          nextState <= S2;
+        else
           ctrlOut_reg <= not ctrlOut_reg;
-          --peakValue <= newValue;
           nextState <= S2;
         end if; 
        
@@ -125,6 +124,8 @@ begin
   
   numWords : process (clk, numWords_bcd)
   begin
+     IndexEqualtoNumwords
+     
      numWordsValue <= numWords_bcd(0) * 100 + numWords_bcd(1) * 10 + numWords_bcd(2);
   end process; -- numWords
  
