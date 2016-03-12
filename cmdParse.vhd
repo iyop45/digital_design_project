@@ -32,11 +32,9 @@ entity cmdParse is
 		
 		lNow: out std_logic;
 		lRecieve: in std_logic;
-		lDone: in std_logic;
 	
 		pNow: out std_logic;
 		pRecieve: in std_logic;
-		pDone: in std_logic;	
 		
 		seqDone: in std_logic
 	);
@@ -55,7 +53,7 @@ architecture parseCommands of cmdParse is
   --    No interruption while processing the NNN bytes
   --    Each byte printing in hexadecimal format
   
-	type state_type is (INIT, FIRST, SECOND, AStart, AFinish, LStart, PStart, LFinish, PFinish); 	
+	type state_type is (INIT, FIRST, SECOND, AStart, AFinish, LShake, PShake); 	
 	signal curState, nextState : state_type;
 	signal counter_enable : std_logic := '0';
 	signal counter_reset : std_logic := '0';
@@ -64,6 +62,7 @@ architecture parseCommands of cmdParse is
 begin
   
   combi_nextState: process(clk, curState)
+    -- char variables are used for debugging
 	  variable char1, char2, char3, char4 : integer := 0;
     variable data : std_logic_vector (23 downto 0);
   begin
@@ -72,27 +71,34 @@ begin
       when INIT =>
         if rxnow = '1' then
 	       case rxData is
+	         
 		        when "01100001"|"01000001" => -- a or A
 					     char1 := to_integer(rxData); 
 					     nextState <= FIRST;
+					     
+					  -- Print 3 bytes preceeding the peak byte
 		        when "01101100"|"01001100" => -- l or L
-					     -- Print 3 bytes preceeding the peak byte
+					     -- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
 					     if seqDone = '1' AND hasProcessedACommand = '1' then
 					       lNow <= '1';
-					       nextState <= LStart;
+					       nextState <= LShake;
 					     else 
 					       nextState <= INIT;  
 					     end if;
-		        when "01110000"|"01010000" => -- p or P
-					     -- Print peak byte
+					     
+					  -- Print peak byte
+		        when "01110000"|"01010000" => -- p or P  
+					     -- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
 					     if seqDone = '1' AND hasProcessedACommand = '1' then
 					       pNow <= '1';
-					       nextState <= PStart;
+					       nextState <= PShake;
 					     else 
 					       nextState <= INIT;  
 					     end if;
+					     
 		        when others =>
 					     nextState <= INIT;
+					     
 	       end case;
         else
 			     -- Keep waiting until rxnow is 1 (data is ready to read)
@@ -178,47 +184,32 @@ begin
         end if;
         
       -- Initial 3-way handshaking protocol for the L module  
-      when LStart =>
+      when LShake =>
         if lRecieve = '1' then
 			     lNow <= '0';
-			     nextState <= LFinish;
+			     nextState <= INIT;
         else 
 			     lNow <= '1';
-			     nextState <= LStart;
-        end if;
-        
-      -- Final handshaking acknologement with the L module
-      when LFinish =>
-        if lDone = '1' then
-			     nextState <= INIT;
-        else
-			     nextState <= LFinish;  
+			     nextState <= LShake;
         end if;
         
       -- Initial 3-way handshaking protocol for the P module    
-      when PStart =>  
+      when PShake =>  
         if pRecieve = '1' then
 			     pNow <= '0';
-			     nextState <= PFinish;
+			     nextState <= INIT;
         else 
 			     pNow <= '1';
-			     nextState <= PStart;
+			     nextState <= PShake;
         end if;   
-        
-      -- Final handshaking acknologement with the P module  
-      when PFinish =>
-        if pDone = '1' then
-			     nextState <= INIT;
-        else
-			     nextState <= PFinish;  
-        end if;
         
    			when others =>
 			  nextstate <= INIT;
       
     end case;
   end process; -- combi_nextState     
-  ----------------------------------------------------- 
+  -----------------------------------------------------
+  -- Integer counter, primarily used for counting 3Ns in ANNN command
   counter: process(clk, counter_enable, counter_reset)
   begin
     if counter_reset = '1' then
@@ -229,6 +220,7 @@ begin
     end if;
   end process; -- counter
   -----------------------------------------------------
+  -- Change state on every rising clock edge
   seq_state: process(clk)
   begin
     if reset = '1' AND clk'event AND clk='1' then
