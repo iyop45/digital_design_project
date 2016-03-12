@@ -36,7 +36,10 @@ entity cmdParse is
 		pNow: out std_logic;
 		pRecieve: in std_logic;
 		
-		seqDone: in std_logic
+		seqDone: in std_logic;
+		
+		prntNow: out std_logic;
+		prntSpace: out std_logic
 	);
 end cmdParse;
 
@@ -64,7 +67,6 @@ begin
   combi_nextState: process(clk, curState)
     -- char variables are used for debugging
 	  variable char1, char2, char3, char4 : integer := 0;
-    variable data : std_logic_vector (23 downto 0);
   begin
     case curState is
 
@@ -73,7 +75,8 @@ begin
 	       case rxData is
 	         
 		        when "01100001"|"01000001" => -- a or A
-					     char1 := to_integer(rxData); 
+					     char1 := to_integer(rxData);
+					     txNow <= '1';
 					     nextState <= FIRST;
 					     
 					  -- Print 3 bytes preceeding the peak byte
@@ -134,13 +137,13 @@ begin
               -- The 3 NNN digits
               case count is
                 when 0 =>
-					         data(7 downto 0) := rxData;
+					         numWords_bcd(0) <= rxData(3 downto 0);
 					         char2 := to_integer(rxData);
                 when 1 =>
-					         data(15 downto 8) := rxData;
+					         numWords_bcd(1) <= rxData(3 downto 0);
 					         char3 := to_integer(rxData);
                 when 2 =>
-					         data(23 downto 16) := rxData;
+					         numWords_bcd(2) <= rxData(3 downto 0);
 					         char4 := to_integer(rxData);
                 when others =>
                   null;
