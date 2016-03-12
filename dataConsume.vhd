@@ -21,7 +21,7 @@ end dataConsume;
 
 architecture detectorArch of dataConsume is
   
-  type state_type is (S0, S1, S2, S3);
+  type state_type is (S0, S1, S2, S3, S4);
   signal curState, nextState: state_type;
   signal peakvalue, newValue: std_logic_vector(7 downto 0) := "00000000";
   signal equal, peakValueSmaller, shift_enable, store_enable, count_enable, loop_enable, count_reset : bit := '0';
@@ -29,32 +29,41 @@ architecture detectorArch of dataConsume is
   signal ctrlOut_reg: std_logic :='0';
   signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
   signal allData: CHAR_ARRAY_TYPE(0 to 999);  
-  signal indexpk, index: integer;
+  signal indexpk, index, start_index: integer;
+  signal numWordsValue: integer := 0;
+  signal start_enable: bit ; --signal that observes start
   
 
 begin
 ------------------------------------------------------
-  combi_nextState: process(clk, curState, ctrlIn_detected)
+  combi_nextState: process(clk, curState) --ctrlIn_detected, peakValueSmaller, start)
   begin
     
     case curState is
-      when S0 => --reset state
-        ctrlOut_reg <= '0';
-        indexpk <= 0;
-        count_reset <= '0';
-        shift_enable <= '1';
-        nextState <= S1; 
-          
-
-      when S1 =>
-        shift_enable <= '0';
-        peakValue <= newValue;
-        loop_enable <='0'; 
-        store_enable <= '0';
-        ctrlOut_reg <= not ctrlOut_reg;
-        nextState <= S2;
        
-      when S2 => 
+       when S0 =>
+        if s_start='1' then
+          start_index <= 0;
+          ctrlOut_reg <= '0';
+          indexpk <= 0;
+          count_reset <= '0';
+          shift_enable <= '0';
+          nextState <= S1;
+        else null; 
+        end if;
+            
+        
+       when S1 => 
+        if numWordsValue = index then
+          seqDone <= '1';
+        else 
+          nextState <= S2;
+          ctrlOut_reg <= not ctrlOut_reg;
+          --peakValue <= newValue;
+          nextState <= S2;
+        end if; 
+       
+       when S2 => 
         if ctrlIn_detected = '1' then   
           shift_enable <= '1';  
           count_enable  <= '1';  
@@ -63,52 +72,52 @@ begin
           nextState <= S2;
         end if;
       
-      when S3 =>
+       when S3 =>
         shift_enable <= '0';
         count_enable  <= '0'; 
         if peakValueSmaller='1' then
           peakValue <= newValue;
           indexPk <= index;
-          loop_enable <='1';
-          nextState <= S1;
-        elsif peakValueSmaller='0' and equal='0' then
-          store_enable <= '1';
-          nextState <= S1;
+        else null;
         end if;
-           
+        nextState <= S4;
+        
+      when S4 =>
+        if start_enable ='1' then
+          dataready <= '1';
+          byte <= allData(start_index)
+          start_index = start_index+1;    
+        else null;
+        end if;
+        nextState <= S1;
+         
         
         
       end case;
   end process; -- combi_nextState
   
-------------------------------------------------------
-
-  store : process(clk, store_enable)
+------------------------------------------------------  
+  start : process (clk, start)
   begin
-    if rising_edge(clk) and store_enable='1' then 
-       if indexpk = index-1 then
-          finalResults(4) <= newValue;
-        elsif indexpk = index-2 then
-          finalResults(5) <= newValue;
-        elsif indexpk = index-3 then
-          finalResults(6) <= newValue; 
-        end if;
-     else null;
-      end if;
-  end process;       
-
-------------------------------------------------------
+    if rising_edge(clk) and start = '1' then
+      start_enable <= '1';
+     
+    else null;
+    end if;
+  end process;
   
-  looper : process (clk, loop_enable)
+------------------------------------------------------
+  store: process (clk, store_enable)
   begin
-    if rising_edge(clk) and loop_enable='1' then 
-          for i in 0 to 2 loop
-            finalResults(3-i) <= allData(indexpk-i);
-          end loop; 
-      else null;
-      end if;
-  end process;     
+    
 
+------------------------------------------------------  
+  
+  numWords : process (clk, numWords_bcd)
+  begin
+     numWordsValue = numWords_bcd(0) * 100 + numWords_bcd(1) * 10 + numWords_bcd(2);
+  end process; -- numWords
+ 
 ------------------------------------------------------  
  
   counter : process (clk, count_enable, count_reset)
@@ -158,6 +167,7 @@ begin
     elsif clk'event AND clk='1' then
       curState <= nextState;
       ctrlOut <= ctrlOut_reg;
+      s_start <= start;
     end if;
   end process; -- seq
 ------------------------------------------------------
