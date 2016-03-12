@@ -177,7 +177,6 @@ begin
     elsif clk'event AND clk='1' then
       curState <= nextState;
       ctrlOut <= ctrlOut_reg;
-      s_start <= start;
     end if;
   end process; -- seq
 ------------------------------------------------------
