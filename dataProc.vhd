@@ -32,14 +32,14 @@ entity dataProc is
 end dataProc;
 
 architecture processData of dataProc is
-  type state_type is (S0, S1, S2, S3);
+  type state_type is (S0, S1, S2, S3, S4);
   signal curState, nextState: state_type;
 begin
 
-	combi_nextState: process(txdone, dataready, byte)
+	combi_nextState: process(clk, curState)
 	begin
 		case curState is
-			when  S0 =>
+			when S0 =>
 				cmddone <= '0';
 				txnow <= '0';       
 				if txdone = '1' AND cmdNow = '1' then --- roys part telling me that he's recieved an annn and i should start processing
@@ -53,21 +53,33 @@ begin
 				start <= '1';
 				nextstate <= S2;
 				
-			when S2 =>
+      when S2 =>
+        start <= '0';
+        if cmdNow = '0' then
+			     cmdRecieve <= '0';
+			     nextState <= S3;
+        else 
+			     cmdRecieve <= '1';
+			     nextState <= S2;
+        end if;
+				
+			when S3 =>
 				start <= '0';
 				if dataready = '1' then
-					nextstate <= S3;
+					nextstate <= S4;
 				else
 					nextstate <= S0;        
 				end if;
 				
-			when S3 =>
+			when S4 =>
 				cmdRecieve <= '0';
 				cmdDone <= '1';
 				txnow <= '1';
 				txData <= byte;
 				nextstate <= S0;
-			
+				
+			when others =>
+			  nextstate <= S0;
 			
 		end case;
 	end process; -- datasend
