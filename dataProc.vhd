@@ -27,7 +27,10 @@ entity dataProc is
 		
 		cmdNow: in std_logic;     
 		cmdDone: out std_logic; 
-		cmdRecieve: out std_logic
+		cmdRecieve: out std_logic;
+		
+		prntNow: out std_logic;
+		prntSpace: out std_logic
 	);
 end dataProc;
 
