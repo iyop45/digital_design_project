@@ -5,7 +5,6 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
---use ieee.std_logic_arith.all;
 use ieee.numeric_std_unsigned.all;
 
 use ieee.numeric_std.all; -- additional debug
@@ -37,11 +36,21 @@ entity cmdProc is
 end cmdProc;
 
 architecture behaviour of cmdProc is
-	signal now : std_logic := '0';
-	signal done : std_logic := '0';
-	signal recieve : std_logic := '0';
+  -- Signals between sub components
+	signal aNow : std_logic := '0';
+	signal aDone : std_logic := '0';
+	signal aRecieve : std_logic := '0';
+
+	signal lNow : std_logic := '0';
+	signal lDone : std_logic := '0';
+	signal lRecieve : std_logic := '0';
+	
+	signal pNow : std_logic := '0';
+	signal pDone : std_logic := '0';
+	signal pRecieve : std_logic := '0';	
 begin
-  CP : entity work.cmdParse(parseCommands) port map (
+  -- entity for parsing and processing commands
+  cmd_parse : entity work.cmdParse(parseCommands) port map (
 		      clk	=> clk,
 		      reset	=> reset,
 		      
@@ -54,11 +63,19 @@ begin
 		      txdone	=> txdone,
 		      numWords_bcd	=> numWords_bcd,
 		      
-		      cmdNow => now,     
-		      cmdDone => done, 
-		      cmdRecieve => recieve      
+		      cmdNow => aNow,     
+		      cmdDone => aDone, 
+		      cmdRecieve => aRecieve,
+		      
+		      lNow => lNow,
+		      lRecieve => lRecieve,
+
+		      pNow => pNow,
+		      pRecieve => pRecieve,
+		      
+		      seqDone => seqDone
         );
-  DP : entity work.dataProc(processData) port map (      
+  data_process : entity work.dataProc(processData) port map (      
 		      clk	=> clk,
 		      reset	=> reset,
 
@@ -70,9 +87,23 @@ begin
 		      dataReady	=> dataReady,
 		      byte	=> byte,
 		      
-		      cmdNow => now,     
-		      cmdDone => done, 
-		      cmdRecieve => recieve  
+		      cmdNow => aNow,     
+		      cmdDone => aDone, 
+		      cmdRecieve => aRecieve  
         );
+        
+  l_cmd : entity work.Lcmd(Lcommand) port map (      
+		      clk	=> clk,
+		      reset	=> reset,
+
+		      txData	=> txData,
+		      txnow	=> txnow,
+		      txdone	=> txdone,
+		      
+		      dataResults	=> dataResults,
+		         
+		      lNow => lNow, 
+		      lRecieve => lRecieve  	      
+        );        
 
 end;
