@@ -28,7 +28,17 @@ entity cmdParse is
 		
 		cmdNow: out std_logic;     
 		cmdDone: in std_logic; 
-		cmdRecieve: in std_logic
+		cmdRecieve: in std_logic;
+		
+		lNow: out std_logic;
+		lRecieve: in std_logic;
+		lDone: in std_logic;
+	
+		pNow: out std_logic;
+		pRecieve: in std_logic;
+		pDone: in std_logic;	
+		
+		seqDone: in std_logic
 	);
 end cmdParse;
 
@@ -45,11 +55,12 @@ architecture parseCommands of cmdParse is
   --    No interruption while processing the NNN bytes
   --    Each byte printing in hexadecimal format
   
-	type state_type is (INIT, FIRST, SECOND, THIRD, FOURTH); 	
+	type state_type is (INIT, FIRST, SECOND, AStart, AFinish, LStart, PStart, LFinish, PFinish); 	
 	signal curState, nextState : state_type;
 	signal counter_enable : std_logic := '0';
 	signal counter_reset : std_logic := '0';
 	signal count : integer := 0;
+	signal hasProcessedACommand : std_logic := '0';
 begin
   
   combi_nextState: process(clk, curState)
@@ -66,15 +77,22 @@ begin
 					     nextState <= FIRST;
 		        when "01101100"|"01001100" => -- l or L
 					     -- Print 3 bytes preceeding the peak byte
-					     nextState <= INIT;
-					     -- dont know yet
+					     if seqDone = '1' AND hasProcessedACommand = '1' then
+					       lNow <= '1';
+					       nextState <= LStart;
+					     else 
+					       nextState <= INIT;  
+					     end if;
 		        when "01110000"|"01010000" => -- p or P
 					     -- Print peak byte
-					     nextState <= INIT;
-					     -- dont know yet
+					     if seqDone = '1' AND hasProcessedACommand = '1' then
+					       pNow <= '1';
+					       nextState <= PStart;
+					     else 
+					       nextState <= INIT;  
+					     end if;
 		        when others =>
 					     nextState <= INIT;
-					     -- dont know yet
 	       end case;
         else
 			     -- Keep waiting until rxnow is 1 (data is ready to read)
@@ -96,10 +114,10 @@ begin
 	      
 	       
       when SECOND =>
-        if count = 4 then
+        if count = 3 then
 			     -- Nothing yet
 			     cmdNow <= '1';
-			     nextState <= THIRD;        
+			     nextState <= AStart;        
         else
           if rxnow = '1' then -- If data is ready to read
             -- Every keystroke needs to be printed
@@ -133,17 +151,19 @@ begin
           end if; 
         end if;
         
-      when THIRD =>
+      -- Initial 3-way handshaking protocol for the dataProc module 
+      when AStart =>
         -- Processing part has been notified of the command
         if cmdRecieve = '1' then
 			     cmdNow <= '0';
-			     nextState <= FOURTH;
+			     nextState <= AFinish;
         else 
 			     cmdNow <= '1';
-			     nextState <= THIRD;
+			     nextState <= AStart;
         end if;
-        
-      when FOURTH =>
+      
+      -- Final handshaking acknologement for the dataProc module 
+      when AFinish =>
         -- Finished processing
         if cmdDone = '1' then
 			     char1 := 0;
@@ -151,14 +171,54 @@ begin
 			     char3 := 0;
 			     char4 := 0;
 			     counter_reset <= '1';
+			     hasProcessedACommand <= '1';
 			     nextState <= INIT;
         else
-			     nextState <= FOURTH;  
+			     nextState <= AFinish;  
         end if;
+        
+      -- Initial 3-way handshaking protocol for the L module  
+      when LStart =>
+        if lRecieve = '1' then
+			     lNow <= '0';
+			     nextState <= LFinish;
+        else 
+			     lNow <= '1';
+			     nextState <= LStart;
+        end if;
+        
+      -- Final handshaking acknologement with the L module
+      when LFinish =>
+        if lDone = '1' then
+			     nextState <= INIT;
+        else
+			     nextState <= LFinish;  
+        end if;
+        
+      -- Initial 3-way handshaking protocol for the P module    
+      when PStart =>  
+        if pRecieve = '1' then
+			     pNow <= '0';
+			     nextState <= PFinish;
+        else 
+			     pNow <= '1';
+			     nextState <= PStart;
+        end if;   
+        
+      -- Final handshaking acknologement with the P module  
+      when PFinish =>
+        if pDone = '1' then
+			     nextState <= INIT;
+        else
+			     nextState <= PFinish;  
+        end if;
+        
+   			when others =>
+			  nextstate <= INIT;
       
     end case;
   end process; -- combi_nextState     
-  --------------------------- ------------------------- 
+  ----------------------------------------------------- 
   counter: process(clk, counter_enable, counter_reset)
   begin
     if counter_reset = '1' then
