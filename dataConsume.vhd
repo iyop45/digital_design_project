@@ -27,7 +27,7 @@ architecture detectorArch of dataConsume is
   signal equal, peakValueSmaller, shift_enable, store_enable, count_enable, loop_enable, count_reset : bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal ctrlOut_reg: std_logic :='0';
-  signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
+  --signal finalResults: CHAR_ARRAY_TYPE(0 to 6);
   signal allData: CHAR_ARRAY_TYPE(0 to 999);  
   signal indexpk, index, start_index: integer;
   signal numWordsValue: integer := 0;
@@ -42,12 +42,13 @@ begin
     case curState is
        
        when S0 =>
-        if s_start='1' then
+        if start_enable='1' then
           start_index <= 0;
           ctrlOut_reg <= '0';
           indexpk <= 0;
           count_reset <= '0';
           shift_enable <= '0';
+          store_enable <= '0';
           nextState <= S1;
         else null; 
         end if;
@@ -56,6 +57,8 @@ begin
        when S1 => 
         if numWordsValue = index then
           seqDone <= '1';
+          store_enable <= '1';
+          nextState <= S0;
         else 
           nextState <= S2;
           ctrlOut_reg <= not ctrlOut_reg;
@@ -85,8 +88,8 @@ begin
       when S4 =>
         if start_enable ='1' then
           dataready <= '1';
-          byte <= allData(start_index)
-          start_index = start_index+1;    
+          byte <= allData(start_index);
+          start_index <= start_index+1;    
         else null;
         end if;
         nextState <= S1;
@@ -97,25 +100,32 @@ begin
   end process; -- combi_nextState
   
 ------------------------------------------------------  
-  start : process (clk, start)
+  start_proc : process (clk, start)
   begin
     if rising_edge(clk) and start = '1' then
       start_enable <= '1';
-     
     else null;
     end if;
   end process;
   
 ------------------------------------------------------
+
   store: process (clk, store_enable)
   begin
-    
+    if rising_edge(clk) and store_enable = '1' then
+      for i in 6 downto 0 loop
+        dataResults(i) <= allData(indexpk - 3 + i);
+      end loop;
+    else null;
+    end if;
+  end process;   
+        
 
 ------------------------------------------------------  
   
   numWords : process (clk, numWords_bcd)
   begin
-     numWordsValue = numWords_bcd(0) * 100 + numWords_bcd(1) * 10 + numWords_bcd(2);
+     numWordsValue <= numWords_bcd(0) * 100 + numWords_bcd(1) * 10 + numWords_bcd(2);
   end process; -- numWords
  
 ------------------------------------------------------  
