@@ -30,7 +30,7 @@ architecture detectorArch of dataConsume is
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
   signal indexpk, start_index, numWordsValue: integer:=0;
   signal index: integer:= 0;
-  --signal debug: std_logic:= '0';
+  signal debug: std_logic:= '0';
   
   
   --curState - Current State.
@@ -72,12 +72,14 @@ begin
           count_reset <= '0';
           shift_enable <= '0';
           store_enable <= '0';
+          debug <= '1';
           nextState <= S1;
         else null; 
         end if;
        
        --Checks to see if all of the data has been processed by the data generator.     
        when S1 => 
+          debug <= '1';
          --If all of the data has been processed, the final data is passed to the command processor and the seqdone signal is asserted.
         if index = 300 then
           seqDone <= '1';
@@ -105,9 +107,12 @@ begin
         count_enable  <= '0'; 
         --Checks to see if new value from the data generator is greater then the current peak value and if true then changes the peak value and it's index.
         if peakValueSmaller = '1' then
-          peakValue <= allData(index);
-          indexPk <= index;
-        else null;
+          peakValue <= allData(index-1);
+          indexPk <= index-1;
+        elsif debug = '1' then
+          peakValue <= allData(0);
+          indexPk <= 0;
+          debug <= '0';
         end if;
         nextState <= S4;
       
@@ -138,8 +143,7 @@ begin
   DataStore : process (clk, shift_enable, data)
   begin
       if rising_edge(clk) and shift_enable='1' then 
-        allData(index) <= data; 
-      else null;
+        allData(index) <= data;
       end if;
   end process;    
   
@@ -174,7 +178,7 @@ begin
        -- if debug = '1' then
          index <= index + 1;
         --else debug <= '1';
-        --end if; 
+        
       end if;
   end process; 
 
@@ -193,18 +197,22 @@ begin
 -- 
 ------------------------------------------------------
   --Compares the new value with the current peak value and see which is greater.
-  comparator: process(clk, peakValue, allData)
+  comparator: process(clk, peakValue, allData, index)
   begin
-      if peakValue = allData(index) then
-        equal <= '1';
-        peakValueSmaller <= '0';
-      elsif peakValue > allData(index) then 
-        equal <= '0';
-        peakValueSmaller <= '0';  
-     elsif peakValue < allData(index) then
-       equal <= '0';
-       peakValueSmaller <= '1';  
-     end if;
+      if index /= 0 then 
+        debug <= '0';
+        if peakValue = allData(index-1) then
+          equal <= '1';
+          peakValueSmaller <= '0';
+        elsif peakValue > allData(index-1) then 
+          equal <= '0';
+          peakValueSmaller <= '0';  
+        elsif peakValue < allData(index-1) then
+          equal <= '0';
+          peakValueSmaller <= '1';  
+        end if;
+      else debug <= '1'; 
+      end if;
  end process; 
   
 ------------------------------------------------------
