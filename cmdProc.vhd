@@ -38,7 +38,6 @@ end cmdProc;
 architecture behaviour of cmdProc is
   -- Signals between sub components
 	signal aNow : std_logic := '0';
-	signal aDone : std_logic := '0';
 	signal aRecieve : std_logic := '0';
 
 	signal lNow : std_logic := '0';
@@ -70,7 +69,6 @@ begin
 		      numWords_bcd	=> numWords_bcd,
 		      
 		      cmdNow => aNow,     
-		      cmdDone => aDone, 
 		      cmdRecieve => aRecieve,
 		      
 		      lNow => lNow,
@@ -79,10 +77,7 @@ begin
 		      pNow => pNow,
 		      pRecieve => pRecieve,
 		      
-		      seqDone => seqDone,
-		      
-		      prntNow => prntNow,
-		      prntSpace => prntSpace
+		      seqDone => seqDone
         );
   data_process : entity work.dataProc(processData) port map (      
 		      clk	=> clk,
@@ -96,12 +91,8 @@ begin
 		      dataReady	=> dataReady,
 		      byte	=> byte,
 		      
-		      cmdNow => aNow,     
-		      cmdDone => aDone, 
-		      cmdRecieve => aRecieve,
-		      
-		      prntNow => prntNow,
-		      prntSpace => prntSpace
+		      cmdNow => aNow,
+		      cmdRecieve => aRecieve
         );
         
   l_cmd : entity work.Lcmd(Lcommand) port map (      
@@ -115,15 +106,12 @@ begin
 		      dataResults	=> dataResults,
 		         
 		      lNow => lNow, 
-		      lRecieve => lRecieve,
-		      
-		      prntNow => prntNow,
-		      prntSpace => prntSpace    
+		      lRecieve => lRecieve 
         );        
 
   -----------------------------------------------------
   -- Interface to the Tx module for printing ascii characters
-  queue_print: process(clk, curState)
+  queue_print: process(clk, curState, prntNow)
     type state_type is (INIT, WAITING, SPACE); 
     --variable ascii_reg : CHAR_ARRAY_TYPE(7 downto 0); -- Max queue size of 8 ascii characters
   begin
