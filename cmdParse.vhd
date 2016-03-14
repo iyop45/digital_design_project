@@ -27,7 +27,6 @@ entity cmdParse is
 		numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0);
 		
 		cmdNow: out std_logic;     
-		cmdDone: in std_logic; 
 		cmdRecieve: in std_logic;
 		
 		lNow: out std_logic;
@@ -36,10 +35,7 @@ entity cmdParse is
 		pNow: out std_logic;
 		pRecieve: in std_logic;
 		
-		seqDone: in std_logic;
-		
-		prntNow: out std_logic;
-		prntSpace: out std_logic
+		seqDone: in std_logic
 	);
 end cmdParse;
 
@@ -76,7 +72,7 @@ begin
 	         
 		        when "01100001"|"01000001" => -- a or A
 					     char1 := to_integer(rxData);
-					     txNow <= '1';
+					     --prntNow <= '1';
 					     nextState <= FIRST;
 					     
 					  -- Print 3 bytes preceeding the peak byte
@@ -150,6 +146,7 @@ begin
               end case;
 
 				      counter_enable <= '1';
+				      --prntNow <= '1';
 				      nextState <= FIRST;
             else
 				      -- Not an integer
@@ -174,7 +171,7 @@ begin
       -- Final handshaking acknologement for the dataProc module 
       when AFinish =>
         -- Finished processing
-        if cmdDone = '1' then
+        --if seqDone = '1' then
 			     char1 := 0;
 			     char2 := 0;
 			     char3 := 0;
@@ -182,9 +179,9 @@ begin
 			     counter_reset <= '1';
 			     hasProcessedACommand <= '1';
 			     nextState <= INIT;
-        else
-			     nextState <= AFinish;  
-        end if;
+        --else
+			  --   nextState <= AFinish;  
+        --end if;
         
       -- Initial 3-way handshaking protocol for the L module  
       when LShake =>
