@@ -26,7 +26,6 @@ entity dataProc is
 		byte: in std_logic_vector(7 downto 0);
 		
 		cmdNow: in std_logic;     
-		cmdDone: out std_logic; 
 		cmdRecieve: out std_logic
 	);
 end dataProc;
@@ -40,7 +39,6 @@ begin
 	begin
 		case curState is
 			when S0 =>
-				cmddone <= '0';
 				txnow <= '0';       
 				if txdone = '1' AND cmdNow = '1' then --- roys part telling me that he's recieved an annn and i should start processing
 					nextstate <= S1;
