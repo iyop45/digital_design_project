@@ -66,7 +66,7 @@ begin
        --Checks to see if a start command has been recieved from the command processor.
         if start_enable='1' then
           --Resets the counter, peak index and various enable signals.
-          start_index <= 0;
+          --start_index <= 0;
           ctrlOut_reg <= '0';
           indexpk <= 0;
           count_reset <= '0';
@@ -81,7 +81,7 @@ begin
        when S1 => 
           debug <= '1';
          --If all of the data has been processed, the final data is passed to the command processor and the seqdone signal is asserted.
-        if index = 300 then
+        if index = 500 then
           seqDone <= '1';
           store_enable <= '1';
           nextState <= S0;
@@ -120,8 +120,10 @@ begin
        when S4 =>
         if start_enable ='1' then
           dataready <= '1';
-          byte <= allData(start_index);
-          start_index <= start_index+1;    
+          if index/= 0 then
+            byte <= allData(start_index-1);
+          else byte <= allData(0);
+          end if;   
         else null;
         end if;
         nextState <= S1;
@@ -177,6 +179,7 @@ begin
       elsif rising_edge(clk) and count_enable='1' then 
        -- if debug = '1' then
          index <= index + 1;
+         start_index <= start_index+1; 
         --else debug <= '1';
         
       end if;
