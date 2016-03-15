@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.std_logic_unsigned.all;
 use work.common_pack.all;
 
 entity dataConsume is
@@ -30,6 +31,7 @@ architecture detectorArch of dataConsume is
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
   signal indexpk, start_index, index, numWordsValue: integer := 0;
   signal debug: std_logic:= '0';
+  signal numWords: std_logic_vector(15 downto 0);
   signal stdIndexPk: std_logic_vector(9 downto 0);
   signal maxIndexSignal: std_logic_vector(11 downto 0) := (others => '0');
   
@@ -173,35 +175,38 @@ begin
       maxIndexSignal(11 downto 1) <= maxIndexSignal(10 downto 0); 
       maxIndexSignal(0) <= stdIndexPk(9);
       stdIndexPk(9 downto 1) <= stdIndexPk(8 downto 0);
-      -- 0 is added at the end of the stdindex as its shifte to left
+      -- 0 is added at the end of the stdIndexPk as its shifts to left
       stdIndexPk(9) <= '0';
       -- As per double dabble, 3 is added to BCD if a BCD digit is greater than 4
-      if(i < 9 and maxIndexSignal(3 downto 0) > "0100") then 
+      if(maxIndexSignal(3 downto 0) > "0100") then 
         maxIndexSignal(3 downto 0) <= maxIndexSignal(3 downto 0) + "0011";
       end if;
 
-      if(i < 9 and maxIndexSignal(7 downto 4) > "0100") then 
+      if(maxIndexSignal(7 downto 4) > "0100") then 
         maxIndexSignal(7 downto 4) <= maxIndexSignal(7 downto 4) + "0011";
       end if;
 
-      if(i < 9 and maxIndexSignal(11 downto 8) > "0100") then
+      if(maxIndexSignal(11 downto 8) > "0100") then
         maxIndexSignal(11 downto 8) <= maxIndexSignal(11 downto 8) + "0011";
       end if;
 
     end loop;
     
     maxIndex(2) <= maxIndexSignal(3 downto 0);
-    maxIndex(2) <= maxIndexSignal(7 downto 4);
-    maxIndex(2) <= maxIndexSignal(11 downto 8);
+    maxIndex(1) <= maxIndexSignal(7 downto 4);
+    maxIndex(0) <= maxIndexSignal(11 downto 8);
     
     
   end process; 
  
-------------------------------------------------------
-  -- Converts the BCD value into an integer value that specifies the number of words to process.
-  bcd_to_int : process (clk, index)
-  begin
-  end process;
+--------------------------------------------------------
+--  -- Converts the BCD value into an integer value that specifies the number of words to process.
+--  bcd_to_int : process (clk, index)
+--  begin
+--    for i in 0 to 11 then
+--      if (i>=0 and i<4)
+--        numWords
+--  end process;
 ------------------------------------------------------ 
   --Counts the index value for the number of words that have been processed.
   counter : process (clk, count_enable, count_reset)
