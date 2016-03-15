@@ -58,21 +58,29 @@ architecture parseCommands of cmdParse is
 	signal counter_reset : std_logic := '0';
 	signal count : integer := 0;
 	signal hasProcessedACommand : std_logic := '0';
+	--signal txnowsignal : std_logic := '0';
 begin
   
   combi_nextState: process(clk, curState)
     -- char variables are used for debugging
 	  variable char1, char2, char3, char4 : integer := 0;
   begin
+    --txnowsignal <= '0';
     case curState is
-
       when INIT =>
+        counter_reset <= '0';
+        
         if rxnow = '1' then
 	       case rxData is
 	         
 		        when "01100001"|"01000001" => -- a or A
 					     char1 := to_integer(rxData);
-					     --prntNow <= '1';
+					     
+					     --txnowsignal <= '1';
+					     --printNow <= '1';
+					     txNow <= '1';
+					     txData <= rxData;
+					     
 					     nextState <= FIRST;
 					     
 					  -- Print 3 bytes preceeding the peak byte
@@ -80,6 +88,10 @@ begin
 					     -- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
 					     if seqDone = '1' AND hasProcessedACommand = '1' then
 					       lNow <= '1';
+					       
+					       txNow <= '1';
+					       txData <= rxData;					       
+					       
 					       nextState <= LShake;
 					     else 
 					       nextState <= INIT;  
@@ -90,6 +102,10 @@ begin
 					     -- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
 					     if seqDone = '1' AND hasProcessedACommand = '1' then
 					       pNow <= '1';
+					       
+					       txNow <= '1';
+					       txData <= rxData;									       
+					       
 					       nextState <= PShake;
 					     else 
 					       nextState <= INIT;  
@@ -109,13 +125,16 @@ begin
 	      -- Recieved a character
 	      -- Wait for rxnow to become 0
 	      counter_enable <= '0';
-	      if rxnow = '0' then
+	      --txnowsignal <= '0';
+	      txNow <= '0';
+	      if rxnow = '0' AND txDone = '1' then
 			     rxdone <= '0';
 			     nextState <= SECOND;
 	      else
 			     rxdone <= '1';
 			     nextState <= FIRST;
 	      end if;
+	      
 	      
 	       
       when SECOND =>
@@ -185,7 +204,7 @@ begin
         
       -- Initial 3-way handshaking protocol for the L module  
       when LShake =>
-        if lRecieve = '1' then
+        if lRecieve = '1' AND txDone = '1' then
 			     lNow <= '0';
 			     nextState <= INIT;
         else 
@@ -195,7 +214,7 @@ begin
         
       -- Initial 3-way handshaking protocol for the P module    
       when PShake =>  
-        if pRecieve = '1' then
+        if pRecieve = '1' AND txDone = '1' then
 			     pNow <= '0';
 			     nextState <= INIT;
         else 
@@ -207,26 +226,29 @@ begin
 			  nextstate <= INIT;
       
     end case;
-  end process; -- combi_nextState     
+  end process; -- combi_nextState  
+  
+  --txNow <= txnowsignal;   
   -----------------------------------------------------
   -- Integer counter, primarily used for counting 3Ns in ANNN command
   counter: process(clk, counter_enable, counter_reset)
   begin
     if counter_reset = '1' then
 		  count <= 0;
-		  counter_reset <= '0';
+		  --counter_reset <= '0';
     elsif rising_edge(clk) AND counter_enable = '1' then
 		  count <= count + 1;
     end if;
   end process; -- counter
   -----------------------------------------------------
   -- Change state on every rising clock edge
-  seq_state: process(clk)
+  seq_state: process(clk, reset)
   begin
     if reset = '1' AND clk'event AND clk='1' then
 		  curState <= INIT;
     elsif clk'event AND clk='1' then
 		  curState <= nextState;
+		  --txNow <= txnowsignal; 
     end if;
   end process; -- seq
   ----------------------------------------------------- 

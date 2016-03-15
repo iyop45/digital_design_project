@@ -19,11 +19,7 @@ entity Lcmd is
 		dataResults: in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
 
 	  lNow : in std_logic;
-	  lRecieve : out std_logic;
-	  
-		prntNow: out std_logic;
-		prntSpace: out std_logic
-	   
+	  lRecieve : out std_logic	   
 	);
 end Lcmd;
 
@@ -119,3 +115,4 @@ begin
 end process; --stateChange
 -----------------------------------------------------
 end;
+

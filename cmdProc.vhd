@@ -50,9 +50,8 @@ architecture behaviour of cmdProc is
 	
 	type state_type is (INIT, WAITING, SPACE);
 	signal curState, nextState : state_type;
-	signal prntNow : std_logic := '0';
-	signal prntSpace : std_logic := '0';
 	--variable ascii_reg : CHAR_ARRAY_TYPE(7 downto 0); -- Max queue size of 8 ascii characters
+	signal printNow, printSpace : std_logic := '0';
 begin
   -- entity for parsing and processing commands
   cmd_parse : entity work.cmdParse(parseCommands) port map (
@@ -78,6 +77,18 @@ begin
 		      pRecieve => pRecieve,
 		      
 		      seqDone => seqDone
+        );
+  queue_print : entity work.printQueue(queuePrint) port map (
+		      clk	=> clk,
+		      reset	=> reset,		
+		      
+		      txData	=> txData,
+		      txnow	=> txnow,
+		      txdone	=> txdone,
+		         
+		      printNow => printNow,
+		      printSpace => printSpace   
+    
         );
   data_process : entity work.dataProc(processData) port map (      
 		      clk	=> clk,
@@ -108,57 +119,6 @@ begin
 		      lNow => lNow, 
 		      lRecieve => lRecieve 
         );        
-
-  -----------------------------------------------------
-  -- Interface to the Tx module for printing ascii characters
-  queue_print: process(clk, curState, prntNow)
-    type state_type is (INIT, WAITING, SPACE); 
-    --variable ascii_reg : CHAR_ARRAY_TYPE(7 downto 0); -- Max queue size of 8 ascii characters
-  begin
-    case curState is
-      
-      when INIT =>
-        if prntNow = '1' then
-          txNow <= '1';
-          nextState <= WAITING;
-        else
-          nextState <= INIT;
-        end if;
-        
-      when WAITING =>
-        txNow <= '0';
-        -- Wait until tx is ready for another byte
-        if txDone <= '1' then
-          -- This character is at the end of the line and so a new line character needs to be appended to the printed output
-          if prntSpace <= '1' then
-            nextState <= SPACE;
-          else
-            nextState <= INIT;  
-          end if;
-        else
-          nextState <= WAITING;
-        end if;
-        
-      when SPACE =>
-        -- Append the ascii space to the printing buffer
-        txData <= x"50"; -- Space
-        txNow <= '1';
-        prntSpace <= '0';
-        nextState <= WAITING;
-        
-    end case;   
-    
-  end process; -- queue_print
-  -----------------------------------------------------
-  -- Change state on every rising clock edge
-  seq_state: process(clk)
-  begin
-    if reset = '1' AND clk'event AND clk='1' then
-		  curState <= INIT;
-    elsif clk'event AND clk='1' then
-		  curState <= nextState;
-    end if;
-  end process; -- seq
   ----------------------------------------------------- 
 
 end;
