@@ -30,7 +30,7 @@ architecture detectorArch of dataConsume is
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
   signal indexpk, start_index, index, numWordsValue: integer := 0;
   signal debug: std_logic:= '0';
-  signal stdIndex: std_logic_vector(9 downto 0);
+  signal stdIndexPk: std_logic_vector(9 downto 0);
   signal maxIndexSignal: std_logic_vector(11 downto 0) := (others => '0');
   
   --curState - Current State.
@@ -164,17 +164,17 @@ begin
 ------------------------------------------------------  
 
   -- Double Dabble method is used here to convert integer into a BCD
-  int_to_bcd : process (clk, index)
+  int_to_bcd : process (clk, indexpk)
   begin
-    stdIndex <= std_logic_vector(to_unsigned(indexpk, 10));
+    stdIndexPk <= std_logic_vector(to_unsigned(indexpk, 10));
     
     for i in 0 to 9 loop -- repeating 9 times as 999 is a 10 bit value
       --we shift the bits left from the stdIndex to the numWords that contains the bcd
       maxIndexSignal(11 downto 1) <= maxIndexSignal(10 downto 0); 
       maxIndexSignal(0) <= stdIndexPk(9);
-      stdIndex(9 downto 1) <= stdIndexPk(8 downto 0);
+      stdIndexPk(9 downto 1) <= stdIndexPk(8 downto 0);
       -- 0 is added at the end of the stdindex as its shifte to left
-      stdIndex(9) <= '0';
+      stdIndexPk(9) <= '0';
       -- As per double dabble, 3 is added to BCD if a BCD digit is greater than 4
       if(i < 9 and maxIndexSignal(3 downto 0) > "0100") then 
         maxIndexSignal(3 downto 0) <= maxIndexSignal(3 downto 0) + "0011";
@@ -199,8 +199,9 @@ begin
  
 ------------------------------------------------------
   -- Converts the BCD value into an integer value that specifies the number of words to process.
-
- 
+  bcd_to_int : process (clk, index)
+  begin
+  end process;
 ------------------------------------------------------ 
   --Counts the index value for the number of words that have been processed.
   counter : process (clk, count_enable, count_reset)
