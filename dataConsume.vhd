@@ -1,6 +1,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
---use ieee.numeric_std_unsigned.all;
+use ieee.numeric_std.all;
 use work.common_pack.all;
 
 entity dataConsume is
@@ -24,14 +24,14 @@ architecture detectorArch of dataConsume is
   
   type state_type is (S0, S1, S2, S3, S4);
   signal curState, nextState: state_type;
-  signal peakvalue, newValue: std_logic_vector(7 downto 0) := "00000000";
-  signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable : std_logic:='0';  --bit := '0';
+  signal peakvalue, newValue: std_logic_vector(7 downto 0) := (others => '0');
+  signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable : std_logic := '0';  --bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
-  signal indexpk, start_index, numWordsValue: integer:=0;
-  signal index: integer:= 0;
+  signal indexpk, start_index, index, numWordsValue: integer := 0;
   signal debug: std_logic:= '0';
-  
+  signal stdIndex: std_logic_vector(9 downto 0);
+  signal maxIndexSignal: std_logic_vector(11 downto 0) := (others => '0');
   
   --curState - Current State.
   --nextState - next State.
@@ -162,15 +162,42 @@ begin
   end process;   
         
 ------------------------------------------------------  
-  ----Converts the BCD value into an integer value that specifies the number of words to process.
---  numWords : process (clk, numWords_bcd)
---  begin
---     --IndexEqualtoNumwords
---     
---     --numWordsValue <= numWords_bcd(0) * 100 + numWords_bcd(1) * 10 + numWords_bcd(2);
---  end process; 
--- 
-------------------------------------------------------  
+  --Converts the BCD value into an integer value that specifies the number of words to process.
+  -- Double Dabble method is used here
+  int_to_bcd : process (clk, index)
+  begin
+    stdIndex <= std_logic_vector(to_unsigned(indexpk, 10));
+    
+    for i in 0 to 9 loop -- repeating 9 times as 999 is a 10 bit value
+      --we shift the bits left from the stdIndex to the numWords that contains the bcd
+      maxIndexSignal(11 downto 1) <= maxIndexSignal(10 downto 0); 
+      maxIndexSignal(0) <= stdIndex(9);
+      stdIndex(9 downto 1) <= stdIndex(8 downto 0);
+      -- 0 is added at the end of the stdindex as its shifte to left
+      stdIndex(9) <= '0';
+      -- As per double dabble, 3 is added to BCD if a BCD digit is greater than 4
+      if(i < 9 and maxIndexSignal(3 downto 0) > "0100") then 
+        maxIndexSignal(3 downto 0) <= maxIndexSignal(3 downto 0) + "0011";
+      end if;
+
+      if(i < 9 and maxIndexSignal(7 downto 4) > "0100") then 
+        maxIndexSignal(7 downto 4) <= maxIndexSignal(7 downto 4) + "0011";
+      end if;
+
+      if(i < 9 and maxIndexSignal(11 downto 8) > "0100") then
+        maxIndexSignal(11 downto 8) <= maxIndexSignal(11 downto 8) + "0011";
+      end if;
+
+    end loop;
+    
+    
+  end process; 
+ 
+------------------------------------------------------
+
+
+ 
+------------------------------------------------------ 
   --Counts the index value for the number of words that have been processed.
   counter : process (clk, count_enable, count_reset)
   begin
@@ -186,19 +213,7 @@ begin
   end process; 
 
 ------------------------------------------------------
-  --Shitfs data into the array that stores all hexadecimal values.
-  --shifting : process (clk, shift_enable, data)
---  begin
---      if rising_edge(clk) and shift_enable='1' then 
---        for i in 999 downto 1 loop 
---            allData(i) <= allData(i-1); 
---        end loop;
---        allData(0) <= data; 
---      else null;
---      end if;
---  end process;    
--- 
-------------------------------------------------------
+ 
   --Compares the new value with the current peak value and see which is greater.
   comparator: process(clk, peakValue, allData, index)
   begin
