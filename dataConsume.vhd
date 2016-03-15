@@ -162,8 +162,8 @@ begin
   end process;   
         
 ------------------------------------------------------  
-  --Converts the BCD value into an integer value that specifies the number of words to process.
-  -- Double Dabble method is used here
+
+  -- Double Dabble method is used here to convert integer into a BCD
   int_to_bcd : process (clk, index)
   begin
     stdIndex <= std_logic_vector(to_unsigned(indexpk, 10));
@@ -171,8 +171,8 @@ begin
     for i in 0 to 9 loop -- repeating 9 times as 999 is a 10 bit value
       --we shift the bits left from the stdIndex to the numWords that contains the bcd
       maxIndexSignal(11 downto 1) <= maxIndexSignal(10 downto 0); 
-      maxIndexSignal(0) <= stdIndex(9);
-      stdIndex(9 downto 1) <= stdIndex(8 downto 0);
+      maxIndexSignal(0) <= stdIndexPk(9);
+      stdIndex(9 downto 1) <= stdIndexPk(8 downto 0);
       -- 0 is added at the end of the stdindex as its shifte to left
       stdIndex(9) <= '0';
       -- As per double dabble, 3 is added to BCD if a BCD digit is greater than 4
@@ -190,11 +190,15 @@ begin
 
     end loop;
     
+    maxIndex(2) <= maxIndexSignal(3 downto 0);
+    maxIndex(2) <= maxIndexSignal(7 downto 4);
+    maxIndex(2) <= maxIndexSignal(11 downto 8);
+    
     
   end process; 
  
 ------------------------------------------------------
-
+  -- Converts the BCD value into an integer value that specifies the number of words to process.
 
  
 ------------------------------------------------------ 
