@@ -6,7 +6,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 --use ieee.std_logic_arith.all;
-use ieee.numeric_std_unsigned.all;
+--use ieee.numeric_std_unsigned.all; -- need for charN debugging
 
 use ieee.numeric_std.all; -- additional debug
 
@@ -63,18 +63,20 @@ begin
   
   combi_nextState: process(clk, curState)
     -- char variables are used for debugging
-	  variable char1, char2, char3, char4 : integer := 0;
+	  -- variable char1, char2, char3, char4 : integer := 0;
   begin
     --txnowsignal <= '0';
     case curState is
       when INIT =>
         counter_reset <= '0';
+        txNow <= '0';
+        txData <= "00000000";
         
         if rxnow = '1' then
 	       case rxData is
 	         
 		        when "01100001"|"01000001" => -- a or A
-					     char1 := to_integer(rxData);
+					     --char1 := to_integer(rxData);
 					     
 					     --txnowsignal <= '1';
 					     --printNow <= '1';
@@ -126,6 +128,7 @@ begin
 	      -- Wait for rxnow to become 0
 	      counter_enable <= '0';
 	      --txnowsignal <= '0';
+	      txData <= rxData;
 	      txNow <= '0';
 	      if rxnow = '0' AND txDone = '1' then
 			     rxdone <= '0';
@@ -153,13 +156,13 @@ begin
               case count is
                 when 0 =>
 					         numWords_bcd(0) <= rxData(3 downto 0);
-					         char2 := to_integer(rxData);
+					         --char2 := to_integer(rxData);
                 when 1 =>
 					         numWords_bcd(1) <= rxData(3 downto 0);
-					         char3 := to_integer(rxData);
+					         --char3 := to_integer(rxData);
                 when 2 =>
 					         numWords_bcd(2) <= rxData(3 downto 0);
-					         char4 := to_integer(rxData);
+					         --char4 := to_integer(rxData);
                 when others =>
                   null;
               end case;
@@ -191,10 +194,10 @@ begin
       when AFinish =>
         -- Finished processing
         --if seqDone = '1' then
-			     char1 := 0;
-			     char2 := 0;
-			     char3 := 0;
-			     char4 := 0;
+			     --char1 := 0;
+			     --char2 := 0;
+			     --char3 := 0;
+			     --char4 := 0;
 			     counter_reset <= '1';
 			     hasProcessedACommand <= '1';
 			     nextState <= INIT;
@@ -248,6 +251,7 @@ begin
 		  curState <= INIT;
     elsif clk'event AND clk='1' then
 		  curState <= nextState;
+		  --txNow <= '0';
 		  --txNow <= txnowsignal; 
     end if;
   end process; -- seq
