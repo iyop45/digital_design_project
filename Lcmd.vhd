@@ -1,124 +1,172 @@
---- author: joshua coop
 ---
---- processing the data processors data for P and L commands
+--- author: roy miles
+--- top level entity wrapping the sub components
+---
+
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
+use ieee.numeric_std_unsigned.all;
+
+use ieee.numeric_std.all; -- additional debug
 
 use work.common_pack.all;
 
-entity Lcmd is
+entity cmdProc is
 	port (
 		clk:		in std_logic;
 		reset:		in std_logic;
-		
-		stxData:			out std_logic_vector (7 downto 0);
-		stxNow:		out std_logic;
-		stxDone:		in std_logic;
-		
+		rxnow:		in std_logic; -- valid port
+		rxData:			in std_logic_vector (7 downto 0);
+		txData:			out std_logic_vector (7 downto 0);
+		rxdone:		out std_logic;
+		ovErr:		in std_logic;
+		framErr:	in std_logic;
+		txnow:		out std_logic;
+		txdone:		in std_logic;
+		start: out std_logic;
+		--numWords: out std_logic_vector(9 downto 0);
+		numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0);
+		dataReady: in std_logic;
+		byte: in std_logic_vector(7 downto 0);
+		maxIndex: in BCD_ARRAY_TYPE(2 downto 0);
+		--dataResults: in std_logic_vector(55 downto 0);
 		dataResults: in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
-
-	  lNow : in std_logic;     --- tells the module when an L comand has been recieved
-	  lRecieve : out std_logic; --- tells cmdparse that i know an L command has been sent
-	  
-	  txHold: out std_logic
-	   
+		seqDone: in std_logic
 	);
-end Lcmd;
+end cmdProc;
 
-architecture Lcommand of Lcmd is
-  type state_type is (S0, S1, S2, S3, S4, S5, S6, S7);
-  signal curState, nextState: state_type;
-	signal counter_enable : std_logic := '0';
-	signal counter_reset : std_logic := '0';
-	signal count : integer := 0;
+architecture behaviour of cmdProc is
+  -- Signals between sub components
+	signal aNow : std_logic := '0';
+	signal aRecieve : std_logic := '0';
+
+	signal lNow : std_logic := '0';
+	signal lDone : std_logic := '0';
+	signal lRecieve : std_logic := '0';
+	
+	signal pNow : std_logic := '0';
+	signal pDone : std_logic := '0';
+	signal pRecieve : std_logic := '0';	
+	
+	signal stxDone : std_logic;	
+	
+	signal stxNow_cmdParse : std_logic := '0';
+	signal stxData_cmdParse : std_logic_vector (7 downto 0) := "00011000";
+
+	signal stxNow_dataProc : std_logic := '0';
+	signal stxData_dataProc : std_logic_vector (7 downto 0) := "00011000";
+
+	signal stxNow_Lcmd : std_logic := '0';
+	signal stxData_Lcmd : std_logic_vector (7 downto 0) := "00011000";
+
+	signal stxNow_Pcmd : std_logic := '0';
+	signal stxData_Pcmd : std_logic_vector (7 downto 0) := "00011000";
+	
+	signal dataProc_TxHold : std_logic;
+	signal Lcmd_TxHold : std_logic;
+	signal Pcmd_TxHold : std_logic;
+	
+	--variable ascii_reg : CHAR_ARRAY_TYPE(7 downto 0); -- Max queue size of 8 ascii characters
+	signal printNow, printSpace : std_logic := '0';
 begin
-  
-  combi_nextState: process(clk, curState)
+  -- entity for parsing and processing commands
+  cmd_parse : entity work.cmdParse(parseCommands) port map (
+		      clk	=> clk,
+		      reset	=> reset,
+		      
+		      rxnow	=> rxnow,
+		      rxData	=> rxData,
+		      rxdone	=> rxdone,
+		      
+		      stxData	=> stxData_cmdParse,
+		      stxnow	=> stxnow_cmdParse,
+		      stxdone	=> stxdone,
+		      numWords_bcd	=> numWords_bcd,
+		      
+		      cmdNow => aNow,     
+		      cmdRecieve => aRecieve,
+		      
+		      lNow => lNow,
+		      lRecieve => lRecieve,
+
+		      pNow => pNow,
+		      pRecieve => pRecieve,
+		      
+		      seqDone => seqDone
+        );
+--  queue_print : entity work.printQueue(queuePrint) port map (
+--		      clk	=> clk,
+--		      reset	=> reset,		
+--		      
+--		      stxData	=> stxData,
+--		      stxnow	=> stxNow,
+--		      stxdone	=> stxDone,
+--		         
+--		      printNow => printNow,
+--		      printSpace => printSpace   
+--    
+--        );
+
+  data_process : entity work.dataProc(processData) port map (      
+		      clk	=> clk,
+		      reset	=> reset,
+
+		      stxData	=> stxData_dataProc,
+		      stxnow	=> stxnow_dataProc,
+		      stxdone	=> stxdone,
+		      
+		      start	=> start,
+		      dataReady	=> dataReady,
+		      byte	=> byte,
+		      seqDone => seqDone,
+		      
+		      cmdNow => aNow,
+		      cmdRecieve => aRecieve,
+		      
+		      txHold => dataProc_TxHold
+        );
+        
+  l_cmd : entity work.Lcmd(Lcommand) port map (      
+		      clk	=> clk,
+		      reset	=> reset,
+
+		      stxData	=> stxData_Lcmd,
+		      stxnow	=> stxnow_Lcmd,
+		      stxdone	=> stxdone,
+		      
+		      dataResults	=> dataResults,
+		         
+		      lNow => lNow, 
+		      lRecieve => lRecieve,
+		      
+		      txHold => Lcmd_TxHold
+        );    
+            
+  ----------------------------------------------------- 
+  tx_print: process(clk)
   begin
-    case curState is
-      --- handshake to the module to ensure tha the rxdata has recieved an L or 1
-      when  S0 => 
-        txHold <= '0';
-        counter_reset <= '1';     
-        if lNow = '1' then 
-          nextstate <= S1;
-        else
-          nextstate <= S0;
-        end if;
-       
-      --- handshake back to the cmdparce to say that we know that an L or 1 has been recieved        
-      when S1 =>
-        txHold <= '1';
-        counter_reset <= '0'; 
-        lRecieve <= '1';
-        if lNow = '0' then 
-          nextstate <= S2;
-        else
-          nextstate <= S1;
-        end if;
-       
-      --- sends the data results values in order, from count = 0 to 7       
-      when S2 =>
-        counter_enable <= '0';
-        stxData <= dataResults(count);
-        stxNow <= '1';
-        lRecieve <= '0';
-        nextstate <= S3;
-              
-      when S3 =>
-        stxNow <= '0';
-        if stxDone = '1' then
-          nextstate <= S4;
-        else
-          nextstate <= S3;
-        end if;
-
+    if clk'event AND clk='1' then
+      
+      -- set Tx inputs to value of internal signal
+      if dataProc_TxHold = '1' then
+        txNow <= stxNow_dataProc;
+        txData <= stxData_dataProc;
+      elsif Lcmd_TxHold = '1' then
+        txNow <= stxNow_Lcmd;
+        txData <= stxData_Lcmd;
+      --elsif Pcmd_TxHold = '1' then
+      --  txNow <= stxNow4;
+      --  txData <= stxData4;
+      else
+        txNow <= stxNow_cmdParse;
+        txData <= stxData_cmdParse;   
+      end if;  
         
-      --- sends a space to the output and then tests to see if all the dataresults have been sent       
-      when S4 =>
-        counter_enable <= '1';
-        stxData <= x"50"; -- space at the output after each dataResult is sent
-        stxNow <= '1';
-        nextstate <= S5;
-        
-      when S5 =>
-        stxNow <= '0';
-        if stxDone = '1' then --- waits for the Tx module to be ready to send again
-          if Count = 7 then  --- Check to see if all the data result bytes have been sent to stxData
-            nextstate <= S0;
-          else
-            nextstate <= S2;
-          end if;
-        else
-          nextstate <= S5;
-        end if;
-
-
-      when others =>
-        nextstate <= S0;
-    end case;
+           
+      -- set signal to value of Tx outputs
+      stxDone <= txDone;
+    end if;
     
-end process;
----------------------------------------------------- 
-counter: process(clk, counter_enable, counter_reset)
-begin
-  if counter_reset = '1' then
-		 count <= 0;
-		 counter_reset <= '0';
-  elsif rising_edge(clk) AND counter_enable = '1' then
-		 count <= count + 1;
-  end if;
-end process; -- counter
------------------------------------------------------
-stateChange: process (clk, reset)
-begin
-  if reset = '1' AND clk'event AND clk='1' then
-    curState <= S0;
-  elsif clk'event AND clk='1' then
-    curState <= nextState;
-  end if;
-end process; --stateChange
------------------------------------------------------
+  end process;
+  
 end;
------------------------------------------------------
