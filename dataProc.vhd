@@ -26,7 +26,8 @@ entity dataProc is
 		byte: in std_logic_vector(7 downto 0);
 		
 		cmdNow: in std_logic;     --- goes high when a start command is typed into the terminal of the format aNNN or ANNN
-		cmdRecieve: out std_logic --- send back to tell cmdparse that data is not being processed by this module
+		cmdRecieve: out std_logic; --- send back to tell cmdparse that data is not being processed by this module
+		dataProc_Hold: out std_logic
 	);
 end dataProc;
 
@@ -40,6 +41,7 @@ begin
 		case curState is
 			when S0 =>
 				stxNow <= '0'; 
+				dataProc_Hold <= '0';
         --- tells us when a new byte can be sent through the Tx module and that a start has been sent through the Rx module
 				if  cmdNow = '1' AND stxDone = '1' then 
 				  nextstate <= S1;
@@ -48,6 +50,7 @@ begin
 				end if;
 				
 			when S1 =>
+			  dataProc_Hold <= '1';
 				cmdRecieve <= '1'; 
 				start <= '1';
 				nextstate <= S2;
@@ -79,6 +82,7 @@ begin
 			when S5 => --sets stxNow to 0 and waits to issue the next send			  
 			  stxNow <= '0'; 
 			  if stxDone = '1' then --- waits until Tx modules ready to send again
+			    
 				  nextstate <= S6;
 				else
 				  nextstate <= S5;
