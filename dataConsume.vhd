@@ -24,7 +24,7 @@ architecture detectorArch of dataConsume is
   
   type state_type is (S0, S1, S2, S3, S4);
   signal curState, nextState: state_type;
-  signal peakvalue, newValue: std_logic_vector(7 downto 0) := "00000000";
+  signal peakvalue : std_logic_vector(7 downto 0) := "00000000";
   signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable : std_logic:='0';  --bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
@@ -37,7 +37,6 @@ architecture detectorArch of dataConsume is
   --curState - Current State.
   --nextState - next State.
   --peakvalue - Current Peak Value.
-  --newValue - The most recent value that has been recieved from the data generator.
   --ctrlOut_reg - Holds the value of the ctrlOut in a register one clock cycle behind ctrlOut.
   --equal - Goes high when the current peak value and the most recent value from the data genator ire the same.
   --peakValueSmaller - Goes high when the peak value is smaller then the small value.
@@ -57,7 +56,7 @@ architecture detectorArch of dataConsume is
 
 begin
 ------------------------------------------------------
-  combi_nextState: process(clk, curState) --start_enable, numWordsValue, index, ctrlIn_detected, peakValueSmaller)
+  combi_nextState: process(clk, curState) --start_enable, index, ctrlIn_detected, peakValueSmaller)
   begin
     
     case curState is
@@ -74,6 +73,7 @@ begin
           shift_enable <= '0';
           store_enable <= '0';
           debug <= '1';
+          seqDone <= '0';
           nextState <= S1;
         else null; 
         end if;
@@ -85,9 +85,9 @@ begin
         if counterOut = numWords then
           seqDone <= '1';
           store_enable <= '1';
-          maxIndex(0) <= indexPk_bcd(11 downto 8);
+          maxIndex(2) <= indexPk_bcd(11 downto 8);
           maxIndex(1) <= indexPk_bcd(7 downto 4);
-          maxIndex(2) <= indexPk_bcd(3 downto 0);
+          maxIndex(0) <= indexPk_bcd(3 downto 0);
           nextState <= S0; 
          --If data generation has not finished, then the handshaking protocol starts.
         else
@@ -163,9 +163,13 @@ begin
   stored_result : process (clk, store_enable)
   begin
     if rising_edge(clk) and store_enable = '1' then
-      for i in 6 downto 0 loop
-        dataResults(i) <= allData(indexpk - 3 + i);
-      end loop;
+        dataResults(0) <= allData(indexpk - 3);
+        dataResults(1) <= allData(indexpk - 2);
+        dataResults(2) <= allData(indexpk - 1);
+        dataResults(3) <= allData(indexpk);
+        dataResults(4) <= allData(indexpk + 1);
+        dataResults(5) <= allData(indexpk + 2);
+        dataResults(6) <= allData(indexpk + 3);
     else null;
     end if;
   end process;   
