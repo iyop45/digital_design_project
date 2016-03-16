@@ -154,9 +154,9 @@ begin
       elsif Lcmd_TxHold = '1' then
         txNow <= stxNow_Lcmd;
         txData <= stxData_Lcmd;
-      --elsif Pcmd_TxHold = '1' then
-      --  txNow <= stxNow4;
-      --  txData <= stxData4;
+      elsif Pcmd_TxHold = '1' then
+        txNow <= stxNow_Pcmd;
+        txData <= stxData_Pcmd;
       else
         txNow <= stxNow_cmdParse;
         txData <= stxData_cmdParse;   
