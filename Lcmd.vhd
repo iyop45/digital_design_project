@@ -12,14 +12,15 @@ entity Lcmd is
 		clk:		in std_logic;
 		reset:		in std_logic;
 		
-		txData:			out std_logic_vector (7 downto 0);
-		txnow:		out std_logic;
-		txdone:		in std_logic;
+		stxData:			out std_logic_vector (7 downto 0);
+		stxNow:		out std_logic;
+		stxDone:		in std_logic;
 		
 		dataResults: in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
 
-	  lNow : in std_logic;
-	  lRecieve : out std_logic	   
+	  lNow : in std_logic;     --- tells the module when an L comand has been recieved
+	  lRecieve : out std_logic --- tells cmdparse that i know an L command has been sent
+	   
 	);
 end Lcmd;
 
@@ -37,7 +38,7 @@ begin
       --- handshake to the module to ensure tha the rxdata has recieved an L or 1
       when  S0 => 
         counter_reset <= '1'; 
-        TxNow <= '0';     
+        stxNow <= '0';     
         if lNow = '1' then 
           nextstate <= S1;
         else
@@ -57,25 +58,31 @@ begin
       --- sends the data results values in order, from count = 0 to 7       
       when S2 =>
         counter_enable <= '0';
-        TxData <= dataResults(count);
-        TxNow <= '1';
+        stxData <= dataResults(count);
+        stxNow <= '1';
         lRecieve <= '0';
-        if TxDone = '1' then
-          nextstate <= S3;
-        else
-          nextstate <= S2;
-        end if;
+        nextstate <= S3;
               
       when S3 =>
-        TxNow <= '0';
-        nextstate <= S4;
+        stxNow <= '0';
+        if stxDone = '1' then
+          nextstate <= S4;
+        else
+          nextstate <= S3;
+        end if;
+
         
       --- sends a space to the output and then tests to see if all the dataresults have been sent       
       when S4 =>
-        TxData <= x"50"; -- space at the output
-        TxNow <= '1';
-        if TxDone = '1' then
-          if Count = 6 then
+        stxData <= x"50"; -- space at the output after each dataResult is sent
+        stxNow <= '1';
+        nextstate <= S5;
+        
+      when S5 =>
+        Counter_enable <= '1';
+        stxNow <= '0';
+        if stxDone = '1' then --- waits for the Tx module to be ready to send again
+          if Count = 6 then  --- Check to see if all the data result bytes have been sent to stxData
             nextstate <= S0;
           else
             nextstate <= S5;
@@ -83,11 +90,7 @@ begin
         else
           nextstate <= S4;
         end if;
-        
-      when S5 =>
-        Counter_enable <= '1';
-        TxNow <= '0';
-        nextstate <= S4;
+
 
       when others =>
         nextstate <= S0;
@@ -115,4 +118,3 @@ begin
 end process; --stateChange
 -----------------------------------------------------
 end;
-
