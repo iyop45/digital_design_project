@@ -61,7 +61,7 @@ begin
 			  TxHold <= '1';
 				cmdRecieve <= '0'; 
 				start <= '1';
-				nextstate <= S2;
+				nextstate <= S3;
 				
 			when S3 => --- waits until there is a new byte of data from the data processor
 			  start <= '0';

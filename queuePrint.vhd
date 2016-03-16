@@ -18,9 +18,9 @@ entity printQueue is
 		clk:		in std_logic;
 		reset:		in std_logic;
 		
-		txData:			out std_logic_vector (7 downto 0);
-		txnow:		out std_logic;
-		txdone:		in std_logic;
+		stxData:			out std_logic_vector (7 downto 0);
+		stxnow:		out std_logic;
+		stxdone:		in std_logic;
 		
 		printNow: in std_logic;
 		printSpace: in std_logic
@@ -37,17 +37,17 @@ begin
     case curState is      
       when INIT =>
         if printNow = '1' then
-          txNow <= '1';
+          stxNow <= '1';
           nextState <= WAITING;
         else
-          txNow <= '0';
+          stxNow <= '0';
           nextState <= INIT;
         end if;
         
       when WAITING =>
-        txNow <= '0';
+        stxNow <= '0';
         -- Wait until tx is ready for another byte
-        if txDone <= '1' then
+        if stxDone <= '1' then
           -- This character is at the end of the line and so a new line character needs to be appended to the printed output
           if printSpace <= '1' then
             nextState <= SPACE;
@@ -60,8 +60,8 @@ begin
         
       when SPACE =>
         -- Append the ascii space to the printing buffer
-        txData <= x"50"; -- Space
-        txNow <= '1';
+        stxData <= x"50"; -- Space
+        stxNow <= '1';
         --prntSpace <= '0';
         nextState <= WAITING;
         

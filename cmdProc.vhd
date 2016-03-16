@@ -48,8 +48,24 @@ architecture behaviour of cmdProc is
 	signal pDone : std_logic := '0';
 	signal pRecieve : std_logic := '0';	
 	
-	type state_type is (INIT, WAITING, SPACE);
-	signal curState, nextState : state_type;
+	signal stxDone : std_logic;	
+	
+	signal stxNow_cmdParse : std_logic := '0';
+	signal stxData_cmdParse : std_logic_vector (7 downto 0) := "00011000";
+
+	signal stxNow_dataProc : std_logic := '0';
+	signal stxData_dataProc : std_logic_vector (7 downto 0) := "00011000";
+
+	signal stxNow_Lcmd : std_logic := '0';
+	signal stxData_Lcmd : std_logic_vector (7 downto 0) := "00011000";
+
+	signal stxNow_Pcmd : std_logic := '0';
+	signal stxData_Pcmd : std_logic_vector (7 downto 0) := "00011000";
+	
+	signal dataProc_TxHold : std_logic;
+	signal Lcmd_TxHold : std_logic;
+	signal Pcmd_TxHold : std_logic;
+	
 	--variable ascii_reg : CHAR_ARRAY_TYPE(7 downto 0); -- Max queue size of 8 ascii characters
 	signal printNow, printSpace : std_logic := '0';
 begin
@@ -62,9 +78,9 @@ begin
 		      rxData	=> rxData,
 		      rxdone	=> rxdone,
 		      
-		      txData	=> txData,
-		      txnow	=> txnow,
-		      txdone	=> txdone,
+		      stxData	=> stxData_cmdParse,
+		      stxnow	=> stxnow_cmdParse,
+		      stxdone	=> stxdone,
 		      numWords_bcd	=> numWords_bcd,
 		      
 		      cmdNow => aNow,     
@@ -78,47 +94,79 @@ begin
 		      
 		      seqDone => seqDone
         );
-  queue_print : entity work.printQueue(queuePrint) port map (
-		      clk	=> clk,
-		      reset	=> reset,		
-		      
-		      txData	=> txData,
-		      txnow	=> txnow,
-		      txdone	=> txdone,
-		         
-		      printNow => printNow,
-		      printSpace => printSpace   
-    
-        );
+--  queue_print : entity work.printQueue(queuePrint) port map (
+--		      clk	=> clk,
+--		      reset	=> reset,		
+--		      
+--		      stxData	=> stxData,
+--		      stxnow	=> stxNow,
+--		      stxdone	=> stxDone,
+--		         
+--		      printNow => printNow,
+--		      printSpace => printSpace   
+--    
+--        );
+
   data_process : entity work.dataProc(processData) port map (      
 		      clk	=> clk,
 		      reset	=> reset,
 
-		      txData	=> txData,
-		      txnow	=> txnow,
-		      txdone	=> txdone,
+		      stxData	=> stxData_dataProc,
+		      stxnow	=> stxnow_dataProc,
+		      stxdone	=> stxdone,
 		      
 		      start	=> start,
 		      dataReady	=> dataReady,
 		      byte	=> byte,
+		      seqDone => seqDone,
 		      
 		      cmdNow => aNow,
-		      cmdRecieve => aRecieve
+		      cmdRecieve => aRecieve,
+		      
+		      txHold => dataProc_TxHold
         );
         
   l_cmd : entity work.Lcmd(Lcommand) port map (      
 		      clk	=> clk,
 		      reset	=> reset,
 
-		      txData	=> txData,
-		      txnow	=> txnow,
-		      txdone	=> txdone,
+		      stxData	=> stxData_Lcmd,
+		      stxnow	=> stxnow_Lcmd,
+		      stxdone	=> stxdone,
 		      
 		      dataResults	=> dataResults,
 		         
 		      lNow => lNow, 
-		      lRecieve => lRecieve 
-        );        
+		      lRecieve => lRecieve,
+		      
+		      txHold => Lcmd_TxHold
+        );    
+            
   ----------------------------------------------------- 
-
+  tx_print: process(clk)
+  begin
+    if clk'event AND clk='1' then
+      
+      -- set Tx inputs to value of internal signal
+      if dataProc_TxHold = '1' then
+        txNow <= stxNow_dataProc;
+        txData <= stxData_dataProc;
+      elsif Lcmd_TxHold = '1' then
+        txNow <= stxNow_Lcmd;
+        txData <= stxData_Lcmd;
+      --elsif Pcmd_TxHold = '1' then
+      --  txNow <= stxNow4;
+      --  txData <= stxData4;
+      else
+        txNow <= stxNow_cmdParse;
+        txData <= stxData_cmdParse;   
+      end if;  
+        
+           
+      -- set signal to value of Tx outputs
+      stxDone <= txDone;
+    end if;
+    
+  end process;
+  
 end;

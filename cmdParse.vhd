@@ -21,9 +21,9 @@ entity cmdParse is
 		rxData:			in std_logic_vector (7 downto 0);
 		rxdone:		out std_logic;
 		
-		txData:			out std_logic_vector (7 downto 0);
-		txnow:		out std_logic;
-		txdone:		in std_logic;
+		stxData:			out std_logic_vector (7 downto 0);
+		stxnow:		out std_logic;
+		stxdone:		in std_logic;
 		numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0);
 		
 		cmdNow: out std_logic;     
@@ -58,7 +58,6 @@ architecture parseCommands of cmdParse is
 	signal counter_reset : std_logic := '0';
 	signal count : integer := 0;
 	signal hasProcessedACommand : std_logic := '0';
-	--signal txnowsignal : std_logic := '0';
 begin
   
   combi_nextState: process(clk, curState)
@@ -69,8 +68,9 @@ begin
     case curState is
       when INIT =>
         counter_reset <= '0';
-        txNow <= '0';
-        txData <= "00000000";
+
+        --stxNow <= '0';
+        --stxData <= "00000000";
         
         if rxnow = '1' then
 	       case rxData is
@@ -78,10 +78,8 @@ begin
 		        when "01100001"|"01000001" => -- a or A
 					     --char1 := to_integer(rxData);
 					     
-					     --txnowsignal <= '1';
-					     --printNow <= '1';
-					     txNow <= '1';
-					     txData <= rxData;
+					     stxNow <= '1';
+					     stxData <= rxData;
 					     
 					     nextState <= FIRST;
 					     
@@ -91,8 +89,8 @@ begin
 					     if seqDone = '1' AND hasProcessedACommand = '1' then
 					       lNow <= '1';
 					       
-					       txNow <= '1';
-					       txData <= rxData;					       
+					       stxNow <= '1';
+					       stxData <= rxData;					       
 					       
 					       nextState <= LShake;
 					     else 
@@ -105,8 +103,8 @@ begin
 					     if seqDone = '1' AND hasProcessedACommand = '1' then
 					       pNow <= '1';
 					       
-					       txNow <= '1';
-					       txData <= rxData;									       
+					       stxNow <= '1';
+					       stxData <= rxData;									       
 					       
 					       nextState <= PShake;
 					     else 
@@ -127,10 +125,11 @@ begin
 	      -- Recieved a character
 	      -- Wait for rxnow to become 0
 	      counter_enable <= '0';
-	      --txnowsignal <= '0';
-	      txData <= rxData;
-	      txNow <= '0';
-	      if rxnow = '0' AND txDone = '1' then
+
+	      stxData <= rxData;
+	      stxNow <= '0';
+	      
+	      if rxnow = '0' AND stxDone = '1' then
 			     rxdone <= '0';
 			     nextState <= SECOND;
 	      else
@@ -148,8 +147,8 @@ begin
         else
           if rxnow = '1' then -- If data is ready to read
             -- Every keystroke needs to be printed
-            txnow <= '1';
-            txData <= rxData;
+            --txnow <= '1';
+            --txData <= rxData;
             
             if rxData(7 downto 4) = "0011" AND (rxData(3 downto 0) > "0000" OR rxData(3 downto 0) < "1001") then -- Check if byte is a valid ascii integer
               -- The 3 NNN digits
@@ -207,7 +206,7 @@ begin
         
       -- Initial 3-way handshaking protocol for the L module  
       when LShake =>
-        if lRecieve = '1' AND txDone = '1' then
+        if lRecieve = '1' AND stxDone = '1' then
 			     lNow <= '0';
 			     nextState <= INIT;
         else 
@@ -217,7 +216,7 @@ begin
         
       -- Initial 3-way handshaking protocol for the P module    
       when PShake =>  
-        if pRecieve = '1' AND txDone = '1' then
+        if pRecieve = '1' AND stxDone = '1' then
 			     pNow <= '0';
 			     nextState <= INIT;
         else 
@@ -251,10 +250,6 @@ begin
 		  curState <= INIT;
     elsif clk'event AND clk='1' then
 		  curState <= nextState;
-		  --txNow <= '0';
-		  --txNow <= txnowsignal; 
     end if;
   end process; -- seq
-  ----------------------------------------------------- 
-  
 end; -- parseCommands

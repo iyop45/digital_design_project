@@ -20,7 +20,8 @@ entity Lcmd is
 
 	  lNow : in std_logic;     --- tells the module when an L comand has been recieved
 	  lRecieve : out std_logic; --- tells cmdparse that i know an L command has been sent
-	  Lcmd_Hold: out std_logic
+	  
+	  txHold: out std_logic
 	   
 	);
 end Lcmd;
@@ -38,7 +39,7 @@ begin
     case curState is
       --- handshake to the module to ensure tha the rxdata has recieved an L or 1
       when  S0 => 
-        Lcmd_Hold <= '0';
+        txHold <= '0';
         counter_reset <= '1';     
         if lNow = '1' then 
           nextstate <= S1;
@@ -48,7 +49,7 @@ begin
        
       --- handshake back to the cmdparce to say that we know that an L or 1 has been recieved        
       when S1 =>
-        Lcmd_Hold <= '1';
+        txHold <= '1';
         counter_reset <= '0'; 
         lRecieve <= '1';
         if lNow = '0' then 
@@ -121,4 +122,3 @@ end process; --stateChange
 -----------------------------------------------------
 end;
 -----------------------------------------------------
-
