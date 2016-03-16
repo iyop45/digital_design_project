@@ -13,12 +13,12 @@ entity Pcmd is
 		reset:		in std_logic;
 		rxnow:		in std_logic; -- valid port
 		rxData:			in std_logic_vector (7 downto 0);
-		txData:			out std_logic_vector (7 downto 0);
+		stxData:			out std_logic_vector (7 downto 0);
 		rxdone:		out std_logic;
 		ovErr:		in std_logic;
 		framErr:	in std_logic;
-		txnow:		out std_logic;
-		txdone:		in std_logic;
+		stxNow:		out std_logic;
+		stxDone:		in std_logic;
 		start: out std_logic;
 		--numWords: out std_logic_vector(9 downto 0);
 		numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0);
@@ -43,13 +43,13 @@ end Pcmd;
 	signal count : integer := 0;
 	
 begin
-  dataSend: process(txdone, dataready, byte)
+  dataSend: process(stxDone, dataready, byte)
   begin
     case curState is
 --- handshake to the module to ensure tha the rxdata has recieved an L or 1
      when  S0 => 
      counter_reset <= '1'; 
-     TxNow <= '0';     
+     stxNow <= '0';     
        if PReceive = '1' then 
          nextstate <= S1;
        else
@@ -68,10 +68,10 @@ begin
        
 --- sends the data results values in order, from count = 0 to 7       
       when S2 =>
-        TxData <= dataResults(3);
-        TxNow <= '1';
+        stxData <= dataResults(3);
+        stxNow <= '1';
         PDone <= '0';
-        if TxDone = '1' then
+        if stxDone = '1' then
           nextstate <= S3;
         else
           nextstate <= S2;
@@ -79,14 +79,14 @@ begin
         
 ---       
       when S3 =>
-        TxNow <= '0';
+        stxNow <= '0';
         nextstate <= S4;
         
 --- sends a space to the output and then tests to see if all the dataresults have been sent       
       when S4 =>
-          TxData <= x"50"; -- space at the output
-          TxNow <= '1';
-          if TxDone = '1' then
+          stxData <= x"50"; -- space at the output
+          stxNow <= '1';
+          if stxDone = '1' then
             nextstate <= S5;
           else
             nextstate <= S4;
@@ -94,13 +94,13 @@ begin
         
 ---       
       when S5 =>
-        TxNow <= '0';
+        stxNow <= '0';
         nextstate <= S6;
         
       when S6 =>
-          TxData <= "0011"& maxIndex(11-count)&maxIndex(10-count)&maxIndex(9-count)&maxIndex(8-count);
-          TxNow <= '1';
-          if TxDone = '1' then
+          stxData <= "0011"& maxIndex(11-count)&maxIndex(10-count)&maxIndex(9-count)&maxIndex(8-count);
+          stxNow <= '1';
+          if stxDone = '1' then
             if count = 2 then
               nextstate <= S0;
             else
@@ -112,7 +112,7 @@ begin
         
       when S7 =>
         counter_enable <= '1';
-        TxNow <= '0';
+        stxNow <= '0';
         nextstate <= S6;
         
 --      when others =>
