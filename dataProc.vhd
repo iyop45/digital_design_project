@@ -25,8 +25,8 @@ entity dataProc is
 		dataReady: in std_logic;
 		byte: in std_logic_vector(7 downto 0);
 		
-		cmdNow: in std_logic;     
-		cmdRecieve: out std_logic
+		cmdNow: in std_logic;     --- goes high when a start command is typed into the terminal of the format aNNN or ANNN
+		cmdRecieve: out std_logic --- send back to tell cmdparse that data is not being processed by this module
 	);
 end dataProc;
 
@@ -39,21 +39,22 @@ begin
 	begin
 		case curState is
 			when S0 =>
-				txnow <= '0';       
-				if txdone = '1' AND cmdNow = '1' then --- roys part telling me that he's recieved an annn and i should start processing
-					nextstate <= S1;
+				txnow <= '0'; 
+        --- tells us when a new byte can be sent through the Tx module and that a start has been sent through the Rx module
+				if  cmdNow = '1' AND txDone = '1' then 
+				  nextstate <= S1;
 				else
 					nextstate <= S0;
 				end if;
 				
 			when S1 =>
-				cmdRecieve <= '1'; --- variable to tell roy i have started processing
+				cmdRecieve <= '1'; 
 				start <= '1';
 				nextstate <= S2;
 				
       when S2 =>
         start <= '0';
-        if cmdNow = '0' then
+        if cmdNow = '0' then --- a duel handshake between cmd parse and this module
 			     cmdRecieve <= '0';
 			     nextState <= S3;
         else 
@@ -61,33 +62,33 @@ begin
 			     nextState <= S2;
         end if;
 				
-			when S3 =>
-				start <= '0';
+			when S3 => --- waits until there is a new byte of data from the data processor
 				if dataready = '1' then
 					nextstate <= S4;
 				else
-					nextstate <= S0;        
+					nextstate <= S3;        
 				end if;
 				
-			when S4 =>
+			when S4 => 
 				cmdRecieve <= '0';
-				txnow <= '1';
-				txData <= byte;
-				nextstate <= S0;
+				txData <= byte; --- gives the byte given by the data procossor to the Tx module
+				txnow <= '1'; ---issues a send command
+				nextstate <= S5;
+
 				
-			when S5 =>
-			  txnow <= '0';
-				txData <= x"50";
-				 
-			when S6 =>
-			  txnow <= '1';
-				txData <= x"50";
-				if txDone = '1' then
-				  nextstate <= S0;
-				else 
+			when S5 => --sets TxNow to 0 and waits to issue the next send			  
+			txnow <= '0'; 
+			  if txdone = '1' then --- waits until Tx modules ready to send again
 				  nextstate <= S6;
+				else
+				  nextstate <= S5;
 				end if;
-				
+				 
+			when S6 =>-- adds a space after every character and issue a send command
+			  txData <= x"50";
+			  txnow <= '1';
+				nextstate <= S0;
+
 			when others =>
 			  nextstate <= S0;
 			
