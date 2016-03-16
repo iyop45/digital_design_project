@@ -28,7 +28,7 @@ architecture detectorArch of dataConsume is
   signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable : std_logic:='0';  --bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
-  signal index, indexpk, start_index, numWordsValue: integer:=0;
+  signal index, indexpk, start_index: integer:=0;
   signal counter1, counter2, counter3: std_logic_vector(3 downto 0) := "0000";
   signal debug: std_logic:= '0';
   signal counterOut, numWords, indexPk_bcd: std_logic_vector(11 downto 0);
@@ -52,7 +52,7 @@ architecture detectorArch of dataConsume is
   --indexpk - Hold the value of the peak value by index.
   --index - Counts how many values have been recieved from the data generator.
   --start_index - Records how many start signals have been recieved so that the corresponding byte can be sent to the command processor.
-  --numWordsValue - Stoeres the number of words that need to be processed by the data generator.
+  --numWords - Stores the number of words that need to be processed by the data generator.
   
 
 begin
@@ -88,8 +88,7 @@ begin
           maxIndex(0) <= indexPk_bcd(11 downto 8);
           maxIndex(1) <= indexPk_bcd(7 downto 4);
           maxIndex(2) <= indexPk_bcd(3 downto 0);
-          nextState <= S0;
-          
+          nextState <= S0; 
          --If data generation has not finished, then the handshaking protocol starts.
         else
           ctrlOut_reg <= not ctrlOut_reg;
@@ -192,11 +191,12 @@ begin
   begin
     if count_reset = '1' then
         
+        index <= 0;
         counter3 <= "0000";
         counter2 <= "0000";
         counter1 <= "0000";
         
-    elsif count_enable = '1' then
+    elsif rising_edge(clk) and count_enable='1' then
         index <= index + 1;
         start_index <= start_index+1;
         counter1 <= std_logic_vector(unsigned(counter1) + "0001");
