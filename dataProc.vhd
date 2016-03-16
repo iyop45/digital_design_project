@@ -17,9 +17,9 @@ entity dataProc is
 		clk:		in std_logic;
 		reset:		in std_logic;
 		
-		txData:			out std_logic_vector (7 downto 0);
-		txnow:		out std_logic;
-		txdone:		in std_logic;
+		stxData:			out std_logic_vector (7 downto 0);
+		stxNow:		out std_logic;
+		stxDone:		in std_logic;
 		
 		start: out std_logic;
 		dataReady: in std_logic;
@@ -39,9 +39,9 @@ begin
 	begin
 		case curState is
 			when S0 =>
-				txnow <= '0'; 
+				stxNow <= '0'; 
         --- tells us when a new byte can be sent through the Tx module and that a start has been sent through the Rx module
-				if  cmdNow = '1' AND txDone = '1' then 
+				if  cmdNow = '1' AND stxDone = '1' then 
 				  nextstate <= S1;
 				else
 					nextstate <= S0;
@@ -71,22 +71,22 @@ begin
 				
 			when S4 => 
 				cmdRecieve <= '0';
-				txData <= byte; --- gives the byte given by the data procossor to the Tx module
-				txnow <= '1'; ---issues a send command
+				stxData <= byte; --- gives the byte given by the data procossor to the Tx module
+				stxNow <= '1'; ---issues a send command
 				nextstate <= S5;
 
 				
-			when S5 => --sets TxNow to 0 and waits to issue the next send			  
-			txnow <= '0'; 
-			  if txdone = '1' then --- waits until Tx modules ready to send again
+			when S5 => --sets stxNow to 0 and waits to issue the next send			  
+			  stxNow <= '0'; 
+			  if stxDone = '1' then --- waits until Tx modules ready to send again
 				  nextstate <= S6;
 				else
 				  nextstate <= S5;
 				end if;
 				 
 			when S6 =>-- adds a space after every character and issue a send command
-			  txData <= x"50";
-			  txnow <= '1';
+			  stxData <= x"50";
+			  stxNow <= '1';
 				nextstate <= S0;
 
 			when others =>
