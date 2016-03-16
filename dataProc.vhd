@@ -26,9 +26,9 @@ entity dataProc is
 		byte: in std_logic_vector(7 downto 0);
 		seqDone: in std_logic;
 		
-		cmdNow: in std_logic;     --- goes high when a start command is typed into the terminal of the format aNNN or ANNN
+		cmdNow: in std_logic;      --- goes high when a start command is typed into the terminal of the format aNNN or ANNN
 		cmdRecieve: out std_logic; --- send back to tell cmdparse that data is not being processed by this module
-		TxHold: out std_logic
+		TxHold: out std_logic      --- goes high when printing to the Tx module and goes low when it stops
 	);
 end dataProc;
 
@@ -57,7 +57,7 @@ begin
 			     nextState <= S1;
         end if;
 				
-			when S2 =>
+			when S2 => --- issues a start command
 			  TxHold <= '1';
 				cmdRecieve <= '0'; 
 				start <= '1';
@@ -92,11 +92,16 @@ begin
 
 			when S7 =>
 			  stxNow <= '0'; 
-			  if seqDone = '1' then
-				   nextstate <= S0;
-				else 
-				   nextstate <= S2;
+			  if stxDone = '1' then --- waits until Tx modules ready to send again
+			   if seqDone = '1' then --- keeps printing the bytes given by the Data generator until all bytes have been processed(printed)
+				     nextstate <= S0;
+				  else 
+				    nextstate <= S2;
+				  end if;
+				else
+				  nextstate <= S7;
 				end if;
+
 			
 		end case;
 	end process; -- datasend
