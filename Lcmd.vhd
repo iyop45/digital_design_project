@@ -19,7 +19,8 @@ entity Lcmd is
 		dataResults: in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
 
 	  lNow : in std_logic;     --- tells the module when an L comand has been recieved
-	  lRecieve : out std_logic --- tells cmdparse that i know an L command has been sent
+	  lRecieve : out std_logic; --- tells cmdparse that i know an L command has been sent
+	  Lcmd_Hold: out std_logic
 	   
 	);
 end Lcmd;
@@ -37,8 +38,8 @@ begin
     case curState is
       --- handshake to the module to ensure tha the rxdata has recieved an L or 1
       when  S0 => 
-        counter_reset <= '1'; 
-        stxNow <= '0';     
+        Lcmd_Hold <= '0';
+        counter_reset <= '1';     
         if lNow = '1' then 
           nextstate <= S1;
         else
@@ -47,6 +48,7 @@ begin
        
       --- handshake back to the cmdparce to say that we know that an L or 1 has been recieved        
       when S1 =>
+        Lcmd_Hold <= '1';
         counter_reset <= '0'; 
         lRecieve <= '1';
         if lNow = '0' then 
@@ -74,21 +76,21 @@ begin
         
       --- sends a space to the output and then tests to see if all the dataresults have been sent       
       when S4 =>
+        counter_enable <= '1';
         stxData <= x"50"; -- space at the output after each dataResult is sent
         stxNow <= '1';
         nextstate <= S5;
         
       when S5 =>
-        Counter_enable <= '1';
         stxNow <= '0';
         if stxDone = '1' then --- waits for the Tx module to be ready to send again
-          if Count = 6 then  --- Check to see if all the data result bytes have been sent to stxData
+          if Count = 7 then  --- Check to see if all the data result bytes have been sent to stxData
             nextstate <= S0;
           else
-            nextstate <= S5;
+            nextstate <= S2;
           end if;
         else
-          nextstate <= S4;
+          nextstate <= S5;
         end if;
 
 
@@ -118,3 +120,5 @@ begin
 end process; --stateChange
 -----------------------------------------------------
 end;
+-----------------------------------------------------
+
