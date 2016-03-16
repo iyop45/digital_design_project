@@ -22,7 +22,7 @@ end dataConsume;
 
 architecture detectorArch of dataConsume is
   
-  type state_type is (S0, S1, S2, S3, S4);
+  type state_type is (S0, S1, S2, S3, S4, S5);
   signal curState, nextState: state_type;
   signal peakvalue : std_logic_vector(7 downto 0) := "00000000";
   signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable : std_logic:='0';  --bit := '0';
@@ -63,32 +63,40 @@ begin
        
        --Reset state
        when S0 =>
+          
+seqDone <= '0';
+           
+count_reset <= '1';
        --Checks to see if a start command has been recieved from the command processor.
-        if start_enable='1' then
+         if start='1' then
           --Resets the counter, peak index and various enable signals.
           --start_index <= 0;
           ctrlOut_reg <= '0';
-          indexpk <= 0;
+          --indexpk <= 0;
           count_reset <= '0';
           shift_enable <= '0';
           store_enable <= '0';
           debug <= '1';
-          seqDone <= '0';
+          --seqDone <= '0';
           nextState <= S1;
         else null; 
         end if;
+        
+      when S5 =>
+        seqDone <= '1';
+        nextState <= S0; 
        
        --Checks to see if all of the data has been processed by the data generator.     
        when S1 => 
           debug <= '1';
          --If all of the data has been processed, the final data is passed to the command processor and the seqdone signal is asserted.
         if counterOut = numWords then
-          seqDone <= '1';
+          --count_reset <= '1';
           store_enable <= '1';
           maxIndex(2) <= indexPk_bcd(11 downto 8);
           maxIndex(1) <= indexPk_bcd(7 downto 4);
           maxIndex(0) <= indexPk_bcd(3 downto 0);
-          nextState <= S0; 
+          nextState <= S5; 
          --If data generation has not finished, then the handshaking protocol starts.
         else
           ctrlOut_reg <= not ctrlOut_reg;
@@ -125,7 +133,7 @@ begin
       
        --Checks to see if a start signal has been put high and if true sends the next byte in sequence to the command processor. 
        when S4 =>
-        if start_enable ='1' then
+        if start ='1' then
           dataready <= '1';
           if index/= 0 then
             byte <= allData(start_index-1);
@@ -141,15 +149,15 @@ begin
   counterOut <= counter3 & counter2 & counter1;
   numWords <= numWords_bcd(2)&numWords_bcd(1)&numWords_bcd(0);
 ------------------------------------------------------  
-  --Checks to see if a start signal has been sent from the command processor during data generation.
-  start_proc : process (clk, start)
-  begin
-    if rising_edge(clk) and start = '1' then
-      start_enable <= '1';
-    else null;
-    end if;
-  end process;
-  
+  ----Checks to see if a start signal has been sent from the command processor during data generation.
+--  start_proc : process (clk, start)
+--  begin
+--    if rising_edge(clk) and start = '1' then
+--      start_enable <= '1';
+--    else start_enable <= '0';
+--    end if;
+--  end process;
+--  
 ---------------------------------------------------  
   DataStore : process (clk, shift_enable, data)
   begin
@@ -163,13 +171,13 @@ begin
   stored_result : process (clk, store_enable)
   begin
     if rising_edge(clk) and store_enable = '1' then
-        dataResults(0) <= allData(indexpk - 3);
-        dataResults(1) <= allData(indexpk - 2);
-        dataResults(2) <= allData(indexpk - 1);
+        dataResults(6) <= allData(indexpk - 3);
+        dataResults(5) <= allData(indexpk - 2);
+        dataResults(4) <= allData(indexpk - 1);
         dataResults(3) <= allData(indexpk);
-        dataResults(4) <= allData(indexpk + 1);
-        dataResults(5) <= allData(indexpk + 2);
-        dataResults(6) <= allData(indexpk + 3);
+        dataResults(2) <= allData(indexpk + 1);
+        dataResults(1) <= allData(indexpk + 2);
+        dataResults(0) <= allData(indexpk + 3);
     else null;
     end if;
   end process;   
@@ -264,4 +272,3 @@ begin
  -- newValue <= allData(index);
 ------------------------------------------------------
 end; --detectorArch
-
