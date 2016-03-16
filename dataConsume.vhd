@@ -123,7 +123,7 @@ count_reset <= '1';
         if peakValueSmaller = '1' then
           peakValue <= allData(index-1);
           indexPk <= index-1;
-          indexPk_bcd <= counterOut;
+          --indexPk_bcd <= counterOut;
         elsif debug = '1' then
           peakValue <= allData(0);
           indexPk <= 0;
@@ -145,9 +145,11 @@ count_reset <= '1';
                  
       end case;
   end process; 
-
+  
+   
   counterOut <= counter3 & counter2 & counter1;
   numWords <= numWords_bcd(2)&numWords_bcd(1)&numWords_bcd(0);
+  if(counter3>0 and counter3<0)
 ------------------------------------------------------  
   ----Checks to see if a start signal has been sent from the command processor during data generation.
 --  start_proc : process (clk, start)
