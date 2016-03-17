@@ -34,6 +34,14 @@ ARCHITECTURE Lcommand OF Lcmd IS
 BEGIN
 	combi_nextState : PROCESS(clk, curState, lNow, dataResults, stxDone, Count)
 	BEGIN
+		counter_reset <= '0';
+		lRecieve <= '0';
+		counter_enable <= '0';
+		stxData <= "00000000";
+		stxNow <= '0';
+		TxHold <= '0';
+		
+	
 		CASE curState IS
 			--- handshake to the module to ensure tha the rxdata has recieved an L or l
 			WHEN S0 => 
