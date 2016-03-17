@@ -140,7 +140,24 @@ begin
 		      lRecieve => lRecieve,
 		      
 		      txHold => Lcmd_TxHold
-        );    
+        ); 
+           
+  p_cmd : entity work.Pcmd(Pcommand) port map (      
+		      clk	=> clk,
+		      reset	=> reset,
+
+		      stxData	=> stxData_Pcmd,
+		      stxnow	=> stxnow_Pcmd,
+		      stxdone	=> stxdone,
+		      
+		      dataResults	=> dataResults,
+		      maxIndex => maxIndex,
+		         
+		      pNow => pNow, 
+		      pRecieve => pRecieve,
+		      
+		      txHold => Pcmd_TxHold
+        );  
             
   ----------------------------------------------------- 
   tx_print: process(clk)
@@ -170,3 +187,4 @@ begin
   end process;
   
 end;
+
