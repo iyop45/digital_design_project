@@ -56,12 +56,14 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL curState, nextState : state_type;
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic := '0';
-	SIGNAL count : INTEGER := 0;
-	SIGNAL hasProcessedACommand : std_logic := '0';
+	SIGNAL count : integer := 0;
+	SIGNAL numWords_bcd_en : std_logic := '0';
+	SIGNAL numWords_bcd_reg : BCD_ARRAY_TYPE(2 DOWNTO 0);
 BEGIN
-	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, hasProcessedACommand, stxDone, cmdRecieve, lRecieve, pRecieve)
+	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve)
 		-- char variables are used for debugging
 		-- variable char1, char2, char3, char4 : integer := 0;
+		variable hasProcessedACommand : std_logic := '0';
 	BEGIN
 		stxNow <= '0';
 		stxData <= "00000000";
@@ -73,13 +75,12 @@ BEGIN
 		counter_enable <= '0';
 		counter_reset <= '0';
 		cmdNow <= '0';
-		numWords_bcd <= ("0000", "0000", "0000");
 		
-		hasProcessedACommand <= '0';
+		numWords_bcd_en <= '0';
+		numWords_bcd_reg <= ("0000", "0000", "0000");
 		
 		CASE curState IS
 			WHEN INIT => 
-				counter_reset <= '0';
  
 				IF rxnow = '1' THEN
 					CASE rxData IS
@@ -120,7 +121,7 @@ BEGIN
 								nextState <= INIT; 
 							END IF;
  
-						WHEN OTHERS => 
+						WHEN OTHERS =>
 							nextState <= INIT;
  
 					END CASE;
@@ -156,27 +157,26 @@ BEGIN
 				ELSE
 					IF rxnow = '1' THEN -- If data is ready to read
 						-- Every keystroke needs to be printed
-						--txnow <= '1';
-						--txData <= rxData;
- 
 						IF rxData(7 DOWNTO 4) = "0011" AND (rxData(3 DOWNTO 0) > "0000" OR rxData(3 DOWNTO 0) < "1001") THEN -- Check if byte is a valid ascii integer
 							-- The 3 NNN digits
 							CASE count IS
 								WHEN 0 => 
-									numWords_bcd(0) <= rxData(3 DOWNTO 0);
+									numWords_bcd_reg(0) <= rxData(3 DOWNTO 0);
+									numWords_bcd_en <= '1';
 									--char2 := to_integer(rxData);
 								WHEN 1 => 
-									numWords_bcd(1) <= rxData(3 DOWNTO 0);
+									numWords_bcd_reg(1) <= rxData(3 DOWNTO 0);
+									numWords_bcd_en <= '1';
 									--char3 := to_integer(rxData);
 								WHEN 2 => 
-									numWords_bcd(2) <= rxData(3 DOWNTO 0);
+									numWords_bcd_reg(2) <= rxData(3 DOWNTO 0);
+									numWords_bcd_en <= '1';
 									--char4 := to_integer(rxData);
 								WHEN OTHERS => 
 									NULL;
 							END CASE;
 
 							counter_enable <= '1';
-							--prntNow <= '1';
 							nextState <= FIRST;
 						ELSE
 							-- Not an integer
@@ -207,7 +207,7 @@ BEGIN
 				--char3 := 0;
 				--char4 := 0;
 				counter_reset <= '1';
-				hasProcessedACommand <= '1';
+				hasProcessedACommand := '1';
 				nextState <= INIT;
 				--else
 				-- nextState <= AFinish; 
@@ -239,14 +239,21 @@ BEGIN
 		END CASE;
 	END PROCESS; -- combi_nextState 
  
-	--txNow <= txnowsignal; 
+	-----------------------------------------------------
+	reg : PROCESS(clk, numWords_bcd_en)
+	BEGIN
+	  IF rising_edge(clk) THEN
+	     IF numWords_bcd_en = '1' THEN
+	       numWords_bcd <= numWords_bcd_reg;
+	     END IF; 
+	  END IF;
+	END PROCESS;
 	-----------------------------------------------------
 	-- Integer counter, primarily used for counting 3Ns in ANNN command
 	counter : PROCESS(clk, counter_enable, counter_reset)
 	BEGIN
 		IF counter_reset = '1' THEN
 			count <= 0;
-			--counter_reset <= '0';
 		ELSIF rising_edge(clk) AND counter_enable = '1' THEN
 			count <= count + 1;
 		END IF;
