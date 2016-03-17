@@ -3,253 +3,260 @@
 --- processing the commands send from Rx
 ---
 
-library ieee;
-use ieee.std_logic_1164.all;
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
 --use ieee.std_logic_arith.all;
 --use ieee.numeric_std_unsigned.all; -- need for charN debugging
 
-use ieee.numeric_std.all; -- additional debug
+USE ieee.numeric_std.ALL; -- additional debug
 
-use work.common_pack.all;
+USE work.common_pack.ALL;
 
-entity cmdParse is
-	port (
-		clk:		in std_logic;
-		reset:		in std_logic;
-		
-		rxnow:		in std_logic; -- valid port
-		rxData:			in std_logic_vector (7 downto 0);
-		rxdone:		out std_logic;
-		
-		stxData:			out std_logic_vector (7 downto 0);
-		stxnow:		out std_logic;
-		stxdone:		in std_logic;
-		numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0);
-		
-		cmdNow: out std_logic;     
-		cmdRecieve: in std_logic;
-		
-		lNow: out std_logic;
-		lRecieve: in std_logic;
-	
-		pNow: out std_logic;
-		pRecieve: in std_logic;
-		
-		seqDone: in std_logic
+ENTITY cmdParse IS
+	PORT (
+		clk : IN std_logic;
+		reset : IN std_logic;
+ 
+		rxnow : IN std_logic; -- valid port
+		rxData : IN std_logic_vector (7 DOWNTO 0);
+		rxdone : OUT std_logic;
+ 
+		stxData : OUT std_logic_vector (7 DOWNTO 0);
+		stxnow : OUT std_logic;
+		stxdone : IN std_logic;
+		numWords_bcd : OUT BCD_ARRAY_TYPE(2 DOWNTO 0);
+ 
+		cmdNow : OUT std_logic; 
+		cmdRecieve : IN std_logic;
+ 
+		lNow : OUT std_logic;
+		lRecieve : IN std_logic;
+ 
+		pNow : OUT std_logic;
+		pRecieve : IN std_logic;
+ 
+		seqDone : IN std_logic
 	);
-end cmdParse;
+END cmdParse;
 
-architecture parseCommands of cmdParse is
-  -- Specification Part 1:
-  -- 1. Parse/Detect a 4 character string with ANNN or aNNN pattern
-  --    NNN is a 3 digit sequence 000-999
-  --    Baude-rate = 9600 
-  --    \n\r terminating characters
-  
-  -- Part 2:
-  -- 1. The value NNN means NNN bytes need to be processed
-  --    NNN must be an integer / number
-  --    No interruption while processing the NNN bytes
-  --    Each byte printing in hexadecimal format
-  
-	type state_type is (INIT, FIRST, SECOND, AStart, AFinish, LShake, PShake); 	
-	signal curState, nextState : state_type;
-	signal counter_enable : std_logic := '0';
-	signal counter_reset : std_logic := '0';
-	signal count : integer := 0;
-	signal hasProcessedACommand : std_logic := '0';
-begin
-  
-  combi_nextState: process(clk, curState)
-    -- char variables are used for debugging
-	  -- variable char1, char2, char3, char4 : integer := 0;
-  begin
-    --txnowsignal <= '0';
-    case curState is
-      when INIT =>
-        counter_reset <= '0';
+ARCHITECTURE parseCommands OF cmdParse IS
+	-- Specification Part 1:
+	-- 1. Parse/Detect a 4 character string with ANNN or aNNN pattern
+	-- NNN is a 3 digit sequence 000-999
+	-- Baude-rate = 9600
+	-- \n\r terminating characters
+ 
+	-- Part 2:
+	-- 1. The value NNN means NNN bytes need to be processed
+	-- NNN must be an integer / number
+	-- No interruption while processing the NNN bytes
+	-- Each byte printing in hexadecimal format
+ 
+	TYPE state_type IS (INIT, FIRST, SECOND, AStart, AFinish, LShake, PShake); 
+	SIGNAL curState, nextState : state_type;
+	SIGNAL counter_enable : std_logic := '0';
+	SIGNAL counter_reset : std_logic := '0';
+	SIGNAL count : INTEGER := 0;
+	SIGNAL hasProcessedACommand : std_logic := '0';
+BEGIN
+	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, hasProcessedACommand, stxDone, cmdRecieve, lRecieve, pRecieve)
+		-- char variables are used for debugging
+		-- variable char1, char2, char3, char4 : integer := 0;
+	BEGIN
+		stxNow <= '0';
+		stxData <= "00000000";
+		
+		lNow <= '0';
+		pNow <= '0';
+		rxdone <= '0';
+		
+		counter_enable <= '0';
+		cmdNow <= '0';
+		numWords_bcd <= ("0000", "0000", "0000");
+		hasProcessedACommand <= '0';
+		
+		CASE curState IS
+			WHEN INIT => 
+				counter_reset <= '0';
+ 
+				IF rxnow = '1' THEN
+					CASE rxData IS
+ 
+						WHEN "01100001" | "01000001" => -- a or A
+							--char1 := to_integer(rxData);
 
-        --stxNow <= '0';
-        --stxData <= "00000000";
-        
-        if rxnow = '1' then
-	       case rxData is
-	         
-		        when "01100001"|"01000001" => -- a or A
-					     --char1 := to_integer(rxData);
-					     
-					     stxNow <= '1';
-					     stxData <= rxData;
-					     
-					     nextState <= FIRST;
-					     
-					  -- Print 3 bytes preceeding the peak byte
-		        when "01101100"|"01001100" => -- l or L
-					     -- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
-					     if seqDone = '1' AND hasProcessedACommand = '1' then
-					       lNow <= '1';
-					       
-					       stxNow <= '1';
-					       stxData <= rxData;					       
-					       
-					       nextState <= LShake;
-					     else 
-					       nextState <= INIT;  
-					     end if;
-					     
-					  -- Print peak byte
-		        when "01110000"|"01010000" => -- p or P  
-					     -- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
-					     if seqDone = '1' AND hasProcessedACommand = '1' then
-					       pNow <= '1';
-					       
-					       stxNow <= '1';
-					       stxData <= rxData;									       
-					       
-					       nextState <= PShake;
-					     else 
-					       nextState <= INIT;  
-					     end if;
-					     
-		        when others =>
-					     nextState <= INIT;
-					     
-	       end case;
-        else
-			     -- Keep waiting until rxnow is 1 (data is ready to read)
-			     rxdone <= '0';
-			     nextState <= INIT;
-        end if;
-	       
-	    when FIRST =>
-	      -- Recieved a character
-	      -- Wait for rxnow to become 0
-	      counter_enable <= '0';
+							stxNow <= '1';
+							stxData <= rxData;
 
-	      stxData <= rxData;
-	      stxNow <= '0';
-	      
-	      if rxnow = '0' AND stxDone = '1' then
-			     rxdone <= '0';
-			     nextState <= SECOND;
-	      else
-			     rxdone <= '1';
-			     nextState <= FIRST;
-	      end if;
-	      
-	      
-	       
-      when SECOND =>
-        if count = 3 then
-			     -- Nothing yet
-			     cmdNow <= '1';
-			     nextState <= AStart;        
-        else
-          if rxnow = '1' then -- If data is ready to read
-            -- Every keystroke needs to be printed
-            --txnow <= '1';
-            --txData <= rxData;
-            
-            if rxData(7 downto 4) = "0011" AND (rxData(3 downto 0) > "0000" OR rxData(3 downto 0) < "1001") then -- Check if byte is a valid ascii integer
-              -- The 3 NNN digits
-              case count is
-                when 0 =>
-					         numWords_bcd(0) <= rxData(3 downto 0);
-					         --char2 := to_integer(rxData);
-                when 1 =>
-					         numWords_bcd(1) <= rxData(3 downto 0);
-					         --char3 := to_integer(rxData);
-                when 2 =>
-					         numWords_bcd(2) <= rxData(3 downto 0);
-					         --char4 := to_integer(rxData);
-                when others =>
-                  null;
-              end case;
+							nextState <= FIRST;
+ 
+							-- Print 3 bytes preceeding the peak byte
+						WHEN "01101100" | "01001100" => -- l or L
+							-- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
+							IF seqDone = '1' AND hasProcessedACommand = '1' THEN
+								lNow <= '1';
 
-				      counter_enable <= '1';
-				      --prntNow <= '1';
-				      nextState <= FIRST;
-            else
-				      -- Not an integer
-				      nextState <= FIRST;
-            end if;
-          else
-			       nextState <= SECOND;
-          end if; 
-        end if;
-        
-      -- Initial 3-way handshaking protocol for the dataProc module 
-      when AStart =>
-        -- Processing part has been notified of the command
-        if cmdRecieve = '1' then
-			     cmdNow <= '0';
-			     nextState <= AFinish;
-        else 
-			     cmdNow <= '1';
-			     nextState <= AStart;
-        end if;
-      
-      -- Final handshaking acknologement for the dataProc module 
-      when AFinish =>
-        -- Finished processing
-        --if seqDone = '1' then
-			     --char1 := 0;
-			     --char2 := 0;
-			     --char3 := 0;
-			     --char4 := 0;
-			     counter_reset <= '1';
-			     hasProcessedACommand <= '1';
-			     nextState <= INIT;
-        --else
-			  --   nextState <= AFinish;  
-        --end if;
-        
-      -- Initial 3-way handshaking protocol for the L module  
-      when LShake =>
-        if lRecieve = '1' AND stxDone = '1' then
-			     lNow <= '0';
-			     nextState <= INIT;
-        else 
-			     lNow <= '1';
-			     nextState <= LShake;
-        end if;
-        
-      -- Initial 3-way handshaking protocol for the P module    
-      when PShake =>  
-        if pRecieve = '1' AND stxDone = '1' then
-			     pNow <= '0';
-			     nextState <= INIT;
-        else 
-			     pNow <= '1';
-			     nextState <= PShake;
-        end if;   
-        
-   			when others =>
-			  nextstate <= INIT;
-      
-    end case;
-  end process; -- combi_nextState  
-  
-  --txNow <= txnowsignal;   
-  -----------------------------------------------------
-  -- Integer counter, primarily used for counting 3Ns in ANNN command
-  counter: process(clk, counter_enable, counter_reset)
-  begin
-    if counter_reset = '1' then
-		  count <= 0;
-		  --counter_reset <= '0';
-    elsif rising_edge(clk) AND counter_enable = '1' then
-		  count <= count + 1;
-    end if;
-  end process; -- counter
-  -----------------------------------------------------
-  -- Change state on every rising clock edge
-  seq_state: process(clk, reset)
-  begin
-    if reset = '1' AND clk'event AND clk='1' then
-		  curState <= INIT;
-    elsif clk'event AND clk='1' then
-		  curState <= nextState;
-    end if;
-  end process; -- seq
-end; -- parseCommands
+								stxNow <= '1';
+								stxData <= rxData; 
+
+								nextState <= LShake;
+							ELSE		
+								nextState <= INIT; 
+							END IF;
+ 
+							-- Print peak byte
+						WHEN "01110000" | "01010000" => -- p or P 
+							-- These commands should not result in any action if a data sequence has not been processed prior to receiving them.
+							IF seqDone = '1' AND hasProcessedACommand = '1' THEN
+								pNow <= '1';
+
+								stxNow <= '1';
+								stxData <= rxData; 
+
+								nextState <= PShake;
+							ELSE
+								nextState <= INIT; 
+							END IF;
+ 
+						WHEN OTHERS => 
+							nextState <= INIT;
+ 
+					END CASE;
+				ELSE
+					-- Keep waiting until rxnow is 1 (data is ready to read)
+					rxdone <= '0';
+					nextState <= INIT;
+				END IF;
+ 
+			WHEN FIRST => 
+				-- Recieved a character
+				-- Wait for rxnow to become 0
+				counter_enable <= '0';
+
+				stxData <= rxData;
+				stxNow <= '0';
+ 
+				IF rxnow = '0' AND stxDone = '1' THEN
+					rxdone <= '0';
+					nextState <= SECOND;
+				ELSE
+					rxdone <= '1';
+					nextState <= FIRST;
+				END IF;
+ 
+ 
+ 
+			WHEN SECOND => 
+				IF count = 3 THEN
+					-- Nothing yet
+					cmdNow <= '1';
+					nextState <= AStart; 
+				ELSE
+					IF rxnow = '1' THEN -- If data is ready to read
+						-- Every keystroke needs to be printed
+						--txnow <= '1';
+						--txData <= rxData;
+ 
+						IF rxData(7 DOWNTO 4) = "0011" AND (rxData(3 DOWNTO 0) > "0000" OR rxData(3 DOWNTO 0) < "1001") THEN -- Check if byte is a valid ascii integer
+							-- The 3 NNN digits
+							CASE count IS
+								WHEN 0 => 
+									numWords_bcd(0) <= rxData(3 DOWNTO 0);
+									--char2 := to_integer(rxData);
+								WHEN 1 => 
+									numWords_bcd(1) <= rxData(3 DOWNTO 0);
+									--char3 := to_integer(rxData);
+								WHEN 2 => 
+									numWords_bcd(2) <= rxData(3 DOWNTO 0);
+									--char4 := to_integer(rxData);
+								WHEN OTHERS => 
+									NULL;
+							END CASE;
+
+							counter_enable <= '1';
+							--prntNow <= '1';
+							nextState <= FIRST;
+						ELSE
+							-- Not an integer
+							nextState <= FIRST;
+						END IF;
+					ELSE
+						nextState <= SECOND;
+					END IF;
+				END IF;
+ 
+				-- Initial 3-way handshaking protocol for the dataProc module
+			WHEN AStart => 
+				-- Processing part has been notified of the command
+				IF cmdRecieve = '1' THEN
+					cmdNow <= '0';
+					nextState <= AFinish;
+				ELSE
+					cmdNow <= '1';
+					nextState <= AStart;
+				END IF;
+ 
+				-- Final handshaking acknologement for the dataProc module
+			WHEN AFinish => 
+				-- Finished processing
+				--if seqDone = '1' then
+				--char1 := 0;
+				--char2 := 0;
+				--char3 := 0;
+				--char4 := 0;
+				counter_reset <= '1';
+				hasProcessedACommand <= '1';
+				nextState <= INIT;
+				--else
+				-- nextState <= AFinish; 
+				--end if;
+ 
+				-- Initial 3-way handshaking protocol for the L module 
+			WHEN LShake => 
+				IF lRecieve = '1' AND stxDone = '1' THEN
+					lNow <= '0';
+					nextState <= INIT;
+				ELSE
+					lNow <= '1';
+					nextState <= LShake;
+				END IF;
+ 
+				-- Initial 3-way handshaking protocol for the P module 
+			WHEN PShake => 
+				IF pRecieve = '1' AND stxDone = '1' THEN
+					pNow <= '0';
+					nextState <= INIT;
+				ELSE
+					pNow <= '1';
+					nextState <= PShake;
+				END IF; 
+ 
+			WHEN OTHERS => 
+				nextstate <= INIT;
+ 
+		END CASE;
+	END PROCESS; -- combi_nextState 
+ 
+	--txNow <= txnowsignal; 
+	-----------------------------------------------------
+	-- Integer counter, primarily used for counting 3Ns in ANNN command
+	counter : PROCESS(clk, counter_enable, counter_reset)
+	BEGIN
+		IF counter_reset = '1' THEN
+			count <= 0;
+			--counter_reset <= '0';
+		ELSIF rising_edge(clk) AND counter_enable = '1' THEN
+			count <= count + 1;
+		END IF;
+	END PROCESS; -- counter
+	-----------------------------------------------------
+	-- Change state on every rising clock edge
+	seq_state : PROCESS(clk, reset)
+	BEGIN
+		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+			curState <= INIT;
+		ELSIF clk'EVENT AND clk = '1' THEN
+			curState <= nextState;
+		END IF;
+	END PROCESS; -- seq
+	END; -- parseCommands
