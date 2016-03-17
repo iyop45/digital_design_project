@@ -68,10 +68,7 @@ begin
        --Checks to see if a start command has been recieved from the command processor.
          if start='1' then
           --Resets the counter, peak index and various enable signals.
-          --start_index <= 0;
           ctrlOut_reg <= '0';
-          --indexpk <= 0;
-          count_reset <= '0';
           shift_enable <= '0';
           store_enable <= '0';
           debug <= '1';
@@ -85,6 +82,7 @@ begin
        
        --Checks to see if all of the data has been processed by the data generator.     
        when S1 => 
+          count_reset <= '0';
           debug <= '1';
           dataReady <= '0';
          --If all of the data has been processed, the final data is passed to the command processor and the seqdone signal is asserted.
@@ -250,6 +248,7 @@ begin
   begin
     if count_reset = '1' then
         
+        start_index <= 0;
         index <= 0;
         counter3 <= "0000";
         counter2 <= "0000";
