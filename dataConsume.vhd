@@ -25,11 +25,11 @@ architecture detectorArch of dataConsume is
   type state_type is (S0, S1, S2, S3, S4, S5);
   signal curState, nextState: state_type;
   signal peakvalue : std_logic_vector(7 downto 0) := "00000000";
-  signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable : std_logic:='0';  --bit := '0';
+  signal ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable, subtract_enable : std_logic:='0';  --bit := '0';
   signal ctrlIn_delayed, ctrlIn_detected: std_logic;
   signal allData: CHAR_ARRAY_TYPE(0 to 998);  
   signal index, indexpk, start_index: integer:=0;
-  signal counter1, counter2, counter3: std_logic_vector(3 downto 0) := "0000";
+  signal counter1, counter2, counter3, c1, c2, c3: std_logic_vector(3 downto 0) := "0000";
   signal debug: std_logic:= '0';
   signal counterOut, numWords, indexPk_bcd: std_logic_vector(11 downto 0);
   
@@ -63,10 +63,8 @@ begin
        
        --Reset state
        when S0 =>
-          
-seqDone <= '0';
-           
-count_reset <= '1';
+         seqDone <= '0';   
+         count_reset <= '1';
        --Checks to see if a start command has been recieved from the command processor.
          if start='1' then
           --Resets the counter, peak index and various enable signals.
@@ -77,7 +75,6 @@ count_reset <= '1';
           shift_enable <= '0';
           store_enable <= '0';
           debug <= '1';
-          --seqDone <= '0';
           nextState <= S1;
         else null; 
         end if;
@@ -89,6 +86,7 @@ count_reset <= '1';
        --Checks to see if all of the data has been processed by the data generator.     
        when S1 => 
           debug <= '1';
+          dataReady <= '0';
          --If all of the data has been processed, the final data is passed to the command processor and the seqdone signal is asserted.
         if counterOut = numWords then
           --count_reset <= '1';
@@ -123,7 +121,7 @@ count_reset <= '1';
         if peakValueSmaller = '1' then
           peakValue <= allData(index-1);
           indexPk <= index-1;
-          --indexPk_bcd <= counterOut;
+          subtract_enable <= '1';
         elsif debug = '1' then
           peakValue <= allData(0);
           indexPk <= 0;
@@ -133,6 +131,7 @@ count_reset <= '1';
       
        --Checks to see if a start signal has been put high and if true sends the next byte in sequence to the command processor. 
        when S4 =>
+        subtract_enable <= '0';
         if start ='1' then
           dataready <= '1';
           if index/= 0 then
@@ -149,6 +148,8 @@ count_reset <= '1';
    
   counterOut <= counter3 & counter2 & counter1;
   numWords <= numWords_bcd(2)&numWords_bcd(1)&numWords_bcd(0);
+  indexPk_bcd <= c3 & c2 & c1;
+  
 ------------------------------------------------------  
   ----Checks to see if a start signal has been sent from the command processor during data generation.
 --  start_proc : process (clk, start)
@@ -159,7 +160,41 @@ count_reset <= '1';
 --    end if;
 --  end process;
 --  
----------------------------------------------------  
+--------------------------------------------------- 
+
+  subtract : process (clk, subtract_enable)
+  begin
+    if subtract_enable = '1' then
+      
+      c1 <= counter1;
+      c2 <= counter2;
+      c3 <= counter3;
+      
+      if c1 > "0000" and c1 <= "1001" then
+        c1 <= std_logic_vector(unsigned(c1(3 downto 0)) - ("0001"));
+      elsif c1 = "0000" and c2 /= "0000" then
+        c1 <= "1001";
+        c2 <= std_logic_vector(unsigned(c2(3 downto 0)) - ("0001")); 
+      elsif c1 = "0000" and c2 = "0000" and c3 /= "0000" then
+        c2 <= "1001";
+        c3 <= std_logic_vector(unsigned(c3(3 downto 0)) - ("0001"));
+      elsif c1 = "0000" and c2 = "0000" and c3 /= "0000" then
+        c1 <= "0000";
+        c2 <= "0000";
+        c3 <= "0000";
+      else null;
+      end if;
+      
+     elsif rising_edge(clk) and subtract_enable = '0' then
+       c1 <= "0000";
+       c2 <= "0000";
+       c3 <= "0000";
+     else null;
+     end if;
+   end process;    
+  
+------------------------------------------------------
+ 
   DataStore : process (clk, shift_enable, data)
   begin
       if rising_edge(clk) and shift_enable='1' then 
@@ -208,7 +243,7 @@ count_reset <= '1';
         counter3 <= "0000";
         counter2 <= "0000";
         counter1 <= "0000";
-        
+       
     elsif rising_edge(clk) and count_enable='1' then
         index <= index + 1;
         start_index <= start_index+1;
