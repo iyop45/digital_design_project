@@ -18,9 +18,9 @@ entity Lcmd is
 		
 		dataResults: in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
 
-	  lNow : in std_logic;     --- tells the module when an L comand has been recieved
+	  lNow : in std_logic;      --- tells the module when an L comand has been recieved
 	  lRecieve : out std_logic; --- tells cmdparse that i know an L command has been sent
-	  TxHold: out std_logic
+	  TxHold: out std_logic     
 	   
 	);
 end Lcmd;
@@ -33,23 +33,22 @@ architecture Lcommand of Lcmd is
 	signal count : integer := 0;
 begin
   
-  combi_nextState: process(clk, curState)
+  combi_nextState: process(lNow, stxDone, Count, dataresults, curState)
   begin
     case curState is
-      --- handshake to the module to ensure tha the rxdata has recieved an L or 1
+      --- handshake to the module to ensure tha the rxdata has recieved an L or l
       when  S0 => 
         TxHold <= '0';
-        counter_reset <= '1';     
+        counter_reset <= '1'; --- resets the counter for the next L command
         if lNow = '1' then 
           nextstate <= S1;
         else
           nextstate <= S0;
         end if;
        
-      --- handshake back to the cmdparce to say that we know that an L or 1 has been recieved        
+      --- handshake back to the cmdparce to say that we know that an L or l has been recieved        
       when S1 =>
-        TxHold <= '1';
-        counter_reset <= '0'; 
+        TxHold <= '1'; --- says that this module will access the Tx moduls signals  
         lRecieve <= '1';
         if lNow = '0' then 
           nextstate <= S2;
@@ -57,14 +56,15 @@ begin
           nextstate <= S1;
         end if;
        
-      --- sends the data results values in order, from count = 0 to 7       
+      --- sends the data results values in the order they were processed, from 0 to 7       
       when S2 =>
         counter_enable <= '0';
         stxData <= dataResults(count);
         stxNow <= '1';
         lRecieve <= '0';
         nextstate <= S3;
-              
+      
+      -- waits until the Tx moduls finishes sending the current byte before issuing the send of the next byte   
       when S3 =>
         stxNow <= '0';
         if stxDone = '1' then
@@ -74,17 +74,17 @@ begin
         end if;
 
         
-      --- sends a space to the output and then tests to see if all the dataresults have been sent       
+      --- sends a space to the output as per specification     
       when S4 =>
-        counter_enable <= '1';
+        counter_enable <= '1';        
         stxData <= x"50"; -- space at the output after each dataResult is sent
         stxNow <= '1';
         nextstate <= S5;
         
       when S5 =>
         stxNow <= '0';
-        if stxDone = '1' then --- waits for the Tx module to be ready to send again
-          if Count = 7 then  --- Check to see if all the data result bytes have been sent to stxData
+        if stxDone = '1' then --- waits for the Tx module to be ready to send the next bytes
+          if Count = 7 then  --- Check to see if all the data result bytes have been sent to stxData to ensure all bytes have been sent
             nextstate <= S0;
           else
             nextstate <= S2;
@@ -121,3 +121,4 @@ end process; --stateChange
 -----------------------------------------------------
 end;
 -----------------------------------------------------
+
