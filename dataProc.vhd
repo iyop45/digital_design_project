@@ -3,115 +3,110 @@
 --- processing the data recieved from the data processor to send to the Tx module
 ---
 
-library ieee;
-use ieee.std_logic_1164.all;
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+--use ieee.std_logic_arith.all;
 
-use ieee.numeric_std.all; -- additional debug
+USE ieee.numeric_std.ALL; -- additional debug
 
-use work.common_pack.all;
+USE work.common_pack.ALL;
 
-entity dataProc is
-	port (
-		clk:		in std_logic;
-		reset:		in std_logic;
-		
-		stxData:			out std_logic_vector (7 downto 0);
-		stxNow:		out std_logic;
-		stxDone:		in std_logic;
-		
-		start: out std_logic;
-		dataReady: in std_logic;
-		byte: in std_logic_vector(7 downto 0);
-		seqDone: in std_logic;
-		
-		cmdNow: in std_logic;      --- goes high when a start command is typed into the terminal of the format aNNN or ANNN
-		cmdRecieve: out std_logic; --- send back to tell cmdparse that data is not being processed by this module
-		TxHold: out std_logic      --- goes high when printing to the Tx module and goes low when it stops
+ENTITY dataProc IS
+	PORT (
+		clk : IN std_logic;
+		reset : IN std_logic;
+ 
+		stxData : OUT std_logic_vector (7 DOWNTO 0);
+		stxNow : OUT std_logic;
+		stxDone : IN std_logic;
+ 
+		start : OUT std_logic;
+		dataReady : IN std_logic;
+		byte : IN std_logic_vector(7 DOWNTO 0);
+		seqDone : IN std_logic;
+ 
+		cmdNow : IN std_logic; --- goes high when a start command is typed into the terminal of the format aNNN or ANNN
+		cmdRecieve : OUT std_logic; --- send back to tell cmdparse that data is not being processed by this module
+		TxHold : OUT std_logic
 	);
-end dataProc;
+END dataProc;
 
-architecture processData of dataProc is
-  type state_type is (S0, S1, S2, S3, S4, S5, S6, S7);
-  signal curState, nextState: state_type;
-begin
-
-	combi_nextState: process(clk, curState)
-	begin
-		case curState is
-			when S0 =>
+ARCHITECTURE processData OF dataProc IS
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7);
+	SIGNAL curState, nextState : state_type;
+BEGIN
+	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone)
+	BEGIN
+		CASE curState IS
+			WHEN S0 => 
 				TxHold <= '0';
-        --- tells us when a new byte can be sent through the Tx module and that a start has been sent through the Rx module
-				if  cmdNow = '1' then 
-				  nextstate <= S1;
-				else
+				--- tells us when a new byte can be sent through the Tx module and that a start has been sent through the Rx module
+				IF cmdNow = '1' THEN
+					nextstate <= S1;
+				ELSE
 					nextstate <= S0;
-				end if;
-				
-      when S1 =>
-    				cmdRecieve <= '1';
-        if cmdNow = '0' then --- a duel handshake between cmd parse and this module
-			     nextState <= S2;
-        else 
-			     nextState <= S1;
-        end if;
-				
-			when S2 => --- issues a start command
-			  TxHold <= '1';
-				cmdRecieve <= '0'; 
+				END IF;
+ 
+			WHEN S1 => 
+				cmdRecieve <= '1';
+				IF cmdNow = '0' THEN --- a duel handshake between cmd parse and this module
+					nextState <= S2;
+				ELSE
+					nextState <= S1;
+				END IF;
+ 
+			WHEN S2 => 
+				TxHold <= '1';
+				cmdRecieve <= '0';
 				start <= '1';
 				nextstate <= S3;
-				
-			when S3 => --- waits until there is a new byte of data from the data processor
-			  start <= '0';
-				if dataready = '1' then
+ 
+			WHEN S3 => --- waits until there is a new byte of data from the data processor
+				start <= '0';
+				IF dataready = '1' THEN
 					nextstate <= S4;
-				else
-					nextstate <= S3;        
-				end if;
-				
-			when S4 => 
+				ELSE
+					nextstate <= S3; 
+				END IF;
+ 
+			WHEN S4 => 
 				stxData <= byte; --- gives the byte given by the data procossor to the Tx module
 				stxNow <= '1'; ---issues a send command
 				nextstate <= S5;
 
-				
-			when S5 => --sets stxNow to 0 and waits to issue the next send			  
-			  stxNow <= '0'; 
-			  if stxDone = '1' then --- waits until Tx modules ready to send again
-				  nextstate <= S6;
-				else
-				  nextstate <= S5;
-				end if;
-				 
-			when S6 =>-- adds a space after every character and issue a send command
-			  stxData <= x"50";
-			  stxNow <= '1';
-			  nextstate <= S7;
+ 
+			WHEN S5 => --sets stxNow to 0 and waits to issue the next send 
+				stxNow <= '0';
+				IF stxDone = '1' THEN --- waits until Tx modules ready to send again
+					nextstate <= S6;
+				ELSE
+					nextstate <= S5;
+				END IF;
+ 
+			WHEN S6 => -- adds a space after every character and issue a send command
+				stxData <= x"50";
+				stxNow <= '1';
+				nextstate <= S7;
 
-			when S7 =>
-			  stxNow <= '0'; 
-			  if stxDone = '1' then --- waits until Tx modules ready to send again
-			   if seqDone = '1' then --- keeps printing the bytes given by the Data generator until all bytes have been processed(printed)
-				     nextstate <= S0;
-				  else 
-				    nextstate <= S2;
-				  end if;
-				else
-				  nextstate <= S7;
-				end if;
-
-			
-		end case;
-	end process; -- datasend
+			WHEN S7 => 
+				stxNow <= '0';
+				IF seqDone = '1' THEN
+					nextstate <= S0;
+				ELSE
+					nextstate <= S2;
+				END IF;
+ 
+		END CASE;
+	END PROCESS; -- datasend
 	-----------------------------------------------------
-	seq_state: process (clk, reset)
-	  begin
-		if reset = '1' AND clk'event AND clk='1' then
-		  curState <= S0;
-		elsif clk'event AND clk='1' then
+	seq_state : PROCESS (clk, reset)
+	BEGIN
+		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+			curState <= S0;
+		ELSIF clk'EVENT AND clk = '1' THEN
 			curState <= nextState;
-		end if;
-	end process; -- stateChange
-	-----------------------------------------------------  
-	
-end; -- processData
+		END IF;
+	END PROCESS; -- stateChange
+	----------------------------------------------------- 
+ 
+	END; -- processData
