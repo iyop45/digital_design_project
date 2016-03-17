@@ -71,8 +71,10 @@ BEGIN
 		rxdone <= '0';
 		
 		counter_enable <= '0';
+		counter_reset <= '0';
 		cmdNow <= '0';
 		numWords_bcd <= ("0000", "0000", "0000");
+		
 		hasProcessedACommand <= '0';
 		
 		CASE curState IS
