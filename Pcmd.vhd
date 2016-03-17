@@ -35,6 +35,11 @@ ARCHITECTURE Pcommand OF Pcmd IS
 BEGIN
 	dataSend : PROCESS(stxDone, pNow, count, maxIndex, dataResults, curState)
 	BEGIN
+		stxNow <= '0';
+		stxData <= "00000000";
+		counter_enable <= '0';
+		counter_reset <= '0';
+	
 		CASE curState IS 
 			--- handshake to the module to ensure tha the rxdata has recieved an P or p
 			WHEN S0 => 
