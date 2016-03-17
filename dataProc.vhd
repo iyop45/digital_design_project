@@ -37,6 +37,12 @@ ARCHITECTURE processData OF dataProc IS
 BEGIN
 	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone)
 	BEGIN
+		cmdRecieve <= '0';
+		start <= '0';
+		stxData <= "00000000";
+		stxNow <= '0';
+		TxHold <= '0';
+	
 		CASE curState IS
 			WHEN S0 => 
 				TxHold <= '0';
