@@ -164,33 +164,44 @@ begin
 
   subtract : process (clk, subtract_enable)
   begin
+    
     if subtract_enable = '1' then
       
-      c1 <= counter1;
-      c2 <= counter2;
-      c3 <= counter3;
-      
-      if c1 > "0000" and c1 <= "1001" then
-        c1 <= std_logic_vector(unsigned(c1(3 downto 0)) - ("0001"));
-      elsif c1 = "0000" and c2 /= "0000" then
+      --c1 <= counter1;
+      --c2 <= counter2;
+      --c3 <= counter3;
+    
+      -- counter1 = LSB    counter3 = MSB
+      if counter1 > "0000" and counter1 < "1010"  then
+        -- If counter is between 1-9 just subtract 1 from LSB
+        c1 <= std_logic_vector(unsigned(counter1(3 downto 0)) - ("0001"));
+        c2 <= counter2;
+        c3 <= counter3;
+        
+      elsif counter1 = "0000" and counter2 /= "0000" then
+        -- If counter is X0 then subtract 1 from counter2 and set LSB to 9
         c1 <= "1001";
-        c2 <= std_logic_vector(unsigned(c2(3 downto 0)) - ("0001")); 
-      elsif c1 = "0000" and c2 = "0000" and c3 /= "0000" then
+        c2 <= std_logic_vector(unsigned(counter2(3 downto 0)) - ("0001"));
+        c3 <= counter3;
+        
+      elsif counter1 = "0000" and counter2 = "0000" and counter3 /= "0000" then
+        -- If counter is X00 then subtract 1 from counter3(MSB) and set LSB and counter2 to 9
+        c1 <= "1001";
         c2 <= "1001";
-        c3 <= std_logic_vector(unsigned(c3(3 downto 0)) - ("0001"));
-      elsif c1 = "0000" and c2 = "0000" and c3 /= "0000" then
+        c3 <= std_logic_vector(unsigned(counter3(3 downto 0)) - ("0001"));
+        
+      elsif counter1 = "0000" and counter2 = "0000" and counter3 = "0000" then
+        -- Cant subtract from counter = 0
         c1 <= "0000";
         c2 <= "0000";
         c3 <= "0000";
       else null;
-      end if;
+      end if;  
+         
       
-     elsif rising_edge(clk) and subtract_enable = '0' then
-       c1 <= "0000";
-       c2 <= "0000";
-       c3 <= "0000";
-     else null;
-     end if;
+      
+    end if;
+      
    end process;    
   
 ------------------------------------------------------
@@ -308,3 +319,4 @@ begin
  -- newValue <= allData(index);
 ------------------------------------------------------
 end; --detectorArch
+
