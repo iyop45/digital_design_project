@@ -149,7 +149,6 @@ count_reset <= '1';
    
   counterOut <= counter3 & counter2 & counter1;
   numWords <= numWords_bcd(2)&numWords_bcd(1)&numWords_bcd(0);
-  if(counter3>0 and counter3<0)
 ------------------------------------------------------  
   ----Checks to see if a start signal has been sent from the command processor during data generation.
 --  start_proc : process (clk, start)
