@@ -1,124 +1,121 @@
 --- author: joshua coop
 ---
 --- processing the data processors data for L commands
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+USE ieee.std_logic_arith.ALL;
 
-use work.common_pack.all;
+USE work.common_pack.ALL;
 
-entity Lcmd is
-	port (
-		clk:		in std_logic;
-		reset:		in std_logic;
-		
-		stxData:			out std_logic_vector (7 downto 0);
-		stxNow:		out std_logic;
-		stxDone:		in std_logic;
-		
-		dataResults: in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
+ENTITY Lcmd IS
+	PORT (
+		clk : IN std_logic;
+		reset : IN std_logic;
+ 
+		stxData : OUT std_logic_vector (7 DOWNTO 0);
+		stxNow : OUT std_logic;
+		stxDone : IN std_logic;
+ 
+		dataResults : IN CHAR_ARRAY_TYPE(0 TO RESULT_BYTE_NUM - 1);
 
-	  lNow : in std_logic;      --- tells the module when an L comand has been recieved
-	  lRecieve : out std_logic; --- tells cmdparse that i know an L command has been sent
-	  TxHold: out std_logic     
-	   
+		lNow : IN std_logic; --- tells the module when an L comand has been recieved
+		lRecieve : OUT std_logic; --- tells cmdparse that i know an L command has been sent
+		TxHold : OUT std_logic 
+ 
 	);
-end Lcmd;
+END Lcmd;
 
-architecture Lcommand of Lcmd is
-  type state_type is (S0, S1, S2, S3, S4, S5, S6, S7);
-  signal curState, nextState: state_type;
-	signal counter_enable : std_logic := '0';
-	signal counter_reset : std_logic := '0';
-	signal count : integer := 0;
-begin
-  
-  combi_nextState: process(lNow, stxDone, Count, dataresults, curState)
-  begin
-    case curState is
-      --- handshake to the module to ensure tha the rxdata has recieved an L or l
-      when  S0 => 
-        TxHold <= '0';
-        counter_reset <= '1'; --- resets the counter for the next L command
-        if lNow = '1' then 
-          nextstate <= S1;
-        else
-          nextstate <= S0;
-        end if;
-       
-      --- handshake back to the cmdparce to say that we know that an L or l has been recieved        
-      when S1 =>
-        TxHold <= '1'; --- says that this module will access the Tx moduls signals  
-        lRecieve <= '1';
-        if lNow = '0' then 
-          nextstate <= S2;
-        else
-          nextstate <= S1;
-        end if;
-       
-      --- sends the data results values in the order they were processed, from 0 to 7       
-      when S2 =>
-        counter_enable <= '0';
-        stxData <= dataResults(count);
-        stxNow <= '1';
-        lRecieve <= '0';
-        nextstate <= S3;
-      
-      -- waits until the Tx moduls finishes sending the current byte before issuing the send of the next byte   
-      when S3 =>
-        stxNow <= '0';
-        if stxDone = '1' then
-          nextstate <= S4;
-        else
-          nextstate <= S3;
-        end if;
+ARCHITECTURE Lcommand OF Lcmd IS
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7);
+	SIGNAL curState, nextState : state_type;
+	SIGNAL counter_enable : std_logic := '0';
+	SIGNAL counter_reset : std_logic;
+	SIGNAL count : INTEGER := 0;
+BEGIN
+	combi_nextState : PROCESS(clk, curState, lNow, dataResults, stxDone, Count)
+	BEGIN
+		CASE curState IS
+			--- handshake to the module to ensure tha the rxdata has recieved an L or l
+			WHEN S0 => 
+				TxHold <= '0';
+				counter_reset <= '1'; --- resets the counter for the next L command
+				IF lNow = '1' THEN
+					nextstate <= S1;
+				ELSE
+					nextstate <= S0;
+				END IF;
+ 
+				--- handshake back to the cmdparce to say that we know that an L or l has been recieved 
+			WHEN S1 => 
+				counter_reset <= '0';
+				TxHold <= '1'; --- says that this module will access the Tx moduls signals 
+				lRecieve <= '1';
+				IF lNow = '0' THEN
+					nextstate <= S2;
+				ELSE
+					nextstate <= S1;
+				END IF;
+ 
+				--- sends the data results values in the order they were processed, from 0 to 7 
+			WHEN S2 => 
+				counter_enable <= '0';
+				stxData <= dataResults(count);
+				stxNow <= '1';
+				lRecieve <= '0';
+				nextstate <= S3;
+ 
+				-- waits until the Tx moduls finishes sending the current byte before issuing the send of the next byte 
+			WHEN S3 => 
+				stxNow <= '0';
+				IF stxDone = '1' THEN
+					nextstate <= S4;
+				ELSE
+					nextstate <= S3;
+				END IF;
 
-        
-      --- sends a space to the output as per specification     
-      when S4 =>
-        counter_enable <= '1';        
-        stxData <= x"50"; -- space at the output after each dataResult is sent
-        stxNow <= '1';
-        nextstate <= S5;
-        
-      when S5 =>
-        stxNow <= '0';
-        if stxDone = '1' then --- waits for the Tx module to be ready to send the next bytes
-          if Count = 7 then  --- Check to see if all the data result bytes have been sent to stxData to ensure all bytes have been sent
-            nextstate <= S0;
-          else
-            nextstate <= S2;
-          end if;
-        else
-          nextstate <= S5;
-        end if;
-
-
-      when others =>
-        nextstate <= S0;
-    end case;
-    
-end process;
----------------------------------------------------- 
-counter: process(clk, counter_enable, counter_reset)
-begin
-  if counter_reset = '1' then
-		 count <= 0;
-		 counter_reset <= '0';
-  elsif rising_edge(clk) AND counter_enable = '1' then
-		 count <= count + 1;
-  end if;
-end process; -- counter
------------------------------------------------------
-stateChange: process (clk, reset)
-begin
-  if reset = '1' AND clk'event AND clk='1' then
-    curState <= S0;
-  elsif clk'event AND clk='1' then
-    curState <= nextState;
-  end if;
-end process; --stateChange
------------------------------------------------------
-end;
------------------------------------------------------
-
+ 
+				--- sends a space to the output as per specification 
+			WHEN S4 => 
+				counter_enable <= '1'; 
+				stxData <= x"50"; -- space at the output after each dataResult is sent
+				stxNow <= '1';
+				nextstate <= S5;
+ 
+			WHEN S5 => 
+				stxNow <= '0';
+				IF stxDone = '1' THEN --- waits for the Tx module to be ready to send the next bytes
+					IF Count = 7 THEN --- Check to see if all the data result bytes have been sent to stxData to ensure all bytes have been sent
+						nextstate <= S0;
+					ELSE
+						nextstate <= S2;
+					END IF;
+				ELSE
+					nextstate <= S5;
+				END IF;
+			WHEN OTHERS => 
+				nextstate <= S0;
+		END CASE;
+ 
+	END PROCESS;
+	----------------------------------------------------
+	counter : PROCESS(clk, counter_enable, counter_reset)
+	BEGIN
+		IF counter_reset = '1' THEN
+			count <= 0;
+			--counter_reset <= '0';
+		ELSIF rising_edge(clk) AND counter_enable = '1' THEN
+			count <= count + 1;
+		END IF;
+	END PROCESS; -- counter
+	-----------------------------------------------------
+	stateChange : PROCESS (clk, reset)
+	BEGIN
+		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+			curState <= S0;
+		ELSIF clk'EVENT AND clk = '1' THEN
+			curState <= nextState;
+		END IF;
+	END PROCESS; --stateChange
+	-----------------------------------------------------
+	END;
+	-----------------------------------------------------
