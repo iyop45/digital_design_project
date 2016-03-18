@@ -52,7 +52,7 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	-- No interruption while processing the NNN bytes
 	-- Each byte printing in hexadecimal format
  
-	TYPE state_type IS (INIT, FIRST, SECOND, AStart, AFinish, LShake, PShake); 
+	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake); 
 	SIGNAL curState, nextState : state_type;
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic := '0';
@@ -100,7 +100,7 @@ BEGIN
 							stxNow <= '1';
 							stxData <= rxData;
 
-							nextState <= FIRST;
+							nextState <= STXDATA_WAIT;
  
 							-- Print 3 bytes preceeding the peak byte
 						WHEN "01101100" | "01001100" => -- l or L
@@ -139,6 +139,15 @@ BEGIN
 					rxdone <= '0';
 					nextState <= INIT;
 				END IF;
+				
+			WHEN STXDATA_WAIT =>
+			  stxNow <= '0';
+			  stxData <= rxData;
+				IF stxDone = '0' THEN --- waits until Tx modules is sending
+					nextstate <= FIRST;
+				ELSE
+					nextstate <= STXDATA_WAIT;
+				END IF;	
  
 			WHEN FIRST => 
 				-- Recieved a character
@@ -265,7 +274,7 @@ BEGIN
 --		END IF;
   
     IF rising_edge(clk) AND numWords_en = 1 THEN
-      numWords_bcd(0) <= numWords_bcd_reg(0);
+      numWords_bcd(2) <= numWords_bcd_reg(0);
     END IF;
 
     IF rising_edge(clk) AND numWords_en = 2 THEN
@@ -273,7 +282,7 @@ BEGIN
     END IF;
     
     IF rising_edge(clk) AND numWords_en = 3 THEN
-      numWords_bcd(2) <= numWords_bcd_reg(2);
+      numWords_bcd(0) <= numWords_bcd_reg(2);
     END IF;    
 		
 	  IF rising_edge(clk) AND hasProcessedACommand_en = '1' THEN
@@ -301,5 +310,6 @@ BEGIN
 		END IF;
 	END PROCESS; -- seq
 	END; -- parseCommands
+
 
 
