@@ -245,14 +245,14 @@ BEGIN
 
 	-----------------------------------------------------	
 	-- Registers to stop latches from being inferrred
-	reg : PROCESS(clk, numWord_en)
-	BEGIN
-		IF clk'EVENT AND clk = '1' AND numWord_en = '1' THEN
-      numWords_bcd(0) <= numWords_bcd_reg(0);
-      numWords_bcd(1) <= numWords_bcd_reg(1);
-      numWords_bcd(2) <= numWords_bcd_reg(2);
-		END IF;
-	END PROCESS; -- counter
+--	reg : PROCESS(clk, numWord_en)
+--	BEGIN
+--		IF clk'EVENT AND clk = '1' AND numWord_en = '1' THEN
+--      numWords_bcd(0) <= numWords_bcd_reg(0);
+--      numWords_bcd(1) <= numWords_bcd_reg(1);
+--      numWords_bcd(2) <= numWords_bcd_reg(2);
+--		END IF;
+--	END PROCESS; -- counter
 	-----------------------------------------------------
 	-- Integer counter, primarily used for counting 3Ns in ANNN command
 	counter : PROCESS(clk, counter_enable, counter_reset)
@@ -274,3 +274,4 @@ BEGIN
 		END IF;
 	END PROCESS; -- seq
 	END; -- parseCommands
+
