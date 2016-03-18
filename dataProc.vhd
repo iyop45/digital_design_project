@@ -39,9 +39,9 @@ BEGIN
 	BEGIN
 		cmdRecieve <= '0';
 		start <= '0';
-		stxData <= "00000000";
+		stxData <= x"20";
 		stxNow <= '0';
-		TxHold <= '0';
+		TxHold <= '1';
 	
 		CASE curState IS
 			WHEN S0 => 
@@ -82,6 +82,7 @@ BEGIN
 
  
 			WHEN S5 => --sets stxNow to 0 and waits to issue the next send 
+				stxData <= byte;
 				stxNow <= '0';
 				IF stxDone = '1' THEN --- waits until Tx modules ready to send again
 					nextstate <= S6;
@@ -90,11 +91,12 @@ BEGIN
 				END IF;
  
 			WHEN S6 => -- adds a space after every character and issue a send command
-				stxData <= x"50";
+				stxData <= x"20";
 				stxNow <= '1';
 				nextstate <= S7;
 
 			WHEN S7 => 
+				stxData <= x"20";
 				stxNow <= '0';
 				IF seqDone = '1' THEN
 					nextstate <= S0;
@@ -116,3 +118,4 @@ BEGIN
 	----------------------------------------------------- 
  
 	END; -- processData
+
