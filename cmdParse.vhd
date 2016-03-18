@@ -83,7 +83,7 @@ BEGIN
 		CASE curState IS
 			WHEN INIT => 
  
-				IF rxnow = '1' THENclk reset
+				IF rxnow = '1' THEN
 					CASE rxData IS
  
 						WHEN "01100001" | "01000001" => -- a or A
