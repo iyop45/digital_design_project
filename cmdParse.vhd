@@ -57,13 +57,15 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic := '0';
 	SIGNAL count : integer := 0;
-	SIGNAL numWords_bcd_en : std_logic := '0';
-	SIGNAL numWords_bcd_reg : BCD_ARRAY_TYPE(2 DOWNTO 0);
+	
+	SIGNAL numWord_en : std_logic := '0';
+	SIGNAL numWords_bcd_reg : BCD_ARRAY_TYPE(2 DOWNTO 0) := ("0000", "0000", "0000");
+	
+	SIGNAL hasProcessedACommand : std_logic := '0';
 BEGIN
-	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve)
+	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve, numWords_bcd_reg)
 		-- char variables are used for debugging
 		-- variable char1, char2, char3, char4 : integer := 0;
-		variable hasProcessedACommand : std_logic := '0';
 	BEGIN
 		stxNow <= '0';
 		stxData <= "00000000";
@@ -76,9 +78,9 @@ BEGIN
 		counter_reset <= '0';
 		cmdNow <= '0';
 		
-		numWords_bcd_en <= '0';
+		numWord_en <= '0';
 		numWords_bcd_reg <= ("0000", "0000", "0000");
-		
+
 		CASE curState IS
 			WHEN INIT => 
  
@@ -145,9 +147,7 @@ BEGIN
 				ELSE
 					rxdone <= '1';
 					nextState <= FIRST;
-				END IF;
- 
- 
+				END IF; 
  
 			WHEN SECOND => 
 				IF count = 3 THEN
@@ -161,16 +161,16 @@ BEGIN
 							-- The 3 NNN digits
 							CASE count IS
 								WHEN 0 => 
+								  numWord_en <= '1';
 									numWords_bcd_reg(0) <= rxData(3 DOWNTO 0);
-									numWords_bcd_en <= '1';
 									--char2 := to_integer(rxData);
 								WHEN 1 => 
+								  numWord_en <= '1';
 									numWords_bcd_reg(1) <= rxData(3 DOWNTO 0);
-									numWords_bcd_en <= '1';
 									--char3 := to_integer(rxData);
 								WHEN 2 => 
+								  numWord_en <= '1';
 									numWords_bcd_reg(2) <= rxData(3 DOWNTO 0);
-									numWords_bcd_en <= '1';
 									--char4 := to_integer(rxData);
 								WHEN OTHERS => 
 									NULL;
@@ -237,17 +237,27 @@ BEGIN
 				nextstate <= INIT;
  
 		END CASE;
+		
+	  --numWords_bcd(0) <= numWords_bcd_reg(0);
+    --numWords_bcd(1) <= numWords_bcd_reg(1);
+	  --numWords_bcd(2) <= numWords_bcd_reg(2);
+		
 	END PROCESS; -- combi_nextState 
- 
-	-----------------------------------------------------
-	reg : PROCESS(clk, numWords_bcd_en)
+
+	-----------------------------------------------------	
+	-- Registers to stop latches from being inferrred
+	reg : PROCESS(clk, numWord_en)
 	BEGIN
-	  IF rising_edge(clk) THEN
-	     IF numWords_bcd_en = '1' THEN
-	       numWords_bcd <= numWords_bcd_reg;
-	     END IF; 
-	  END IF;
-	END PROCESS;
+		IF clk'EVENT AND clk = '1' AND numWord_en = '1' THEN
+      numWords_bcd(0) <= numWords_bcd_reg(0);
+      numWords_bcd(1) <= numWords_bcd_reg(1);
+      numWords_bcd(2) <= numWords_bcd_reg(2);
+		END IF;
+		
+		IF clk'EVENT AND clk = '1' AND hasProcessedACommand_en = '1' THEN
+      hasProcessedACommand <= hasProcessedACommand_reg;
+		END IF;
+	END PROCESS; -- counter
 	-----------------------------------------------------
 	-- Integer counter, primarily used for counting 3Ns in ANNN command
 	counter : PROCESS(clk, counter_enable, counter_reset)
