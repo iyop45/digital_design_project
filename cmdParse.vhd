@@ -79,12 +79,11 @@ BEGIN
 		cmdNow <= '0';
 		
 		numWord_en <= '0';
-		numWords_bcd_reg <= ("0000", "0000", "0000");
 
 		CASE curState IS
 			WHEN INIT => 
  
-				IF rxnow = '1' THEN
+				IF rxnow = '1' THENclk reset
 					CASE rxData IS
  
 						WHEN "01100001" | "01000001" => -- a or A
@@ -162,15 +161,15 @@ BEGIN
 							CASE count IS
 								WHEN 0 => 
 								  numWord_en <= '1';
-									numWords_bcd_reg(0) <= rxData(3 DOWNTO 0);
+									numWords_bcd(0) <= rxData(3 DOWNTO 0);
 									--char2 := to_integer(rxData);
 								WHEN 1 => 
 								  numWord_en <= '1';
-									numWords_bcd_reg(1) <= rxData(3 DOWNTO 0);
+									numWords_bcd(1) <= rxData(3 DOWNTO 0);
 									--char3 := to_integer(rxData);
 								WHEN 2 => 
 								  numWord_en <= '1';
-									numWords_bcd_reg(2) <= rxData(3 DOWNTO 0);
+									numWords_bcd(2) <= rxData(3 DOWNTO 0);
 									--char4 := to_integer(rxData);
 								WHEN OTHERS => 
 									NULL;
@@ -207,7 +206,7 @@ BEGIN
 				--char3 := 0;
 				--char4 := 0;
 				counter_reset <= '1';
-				hasProcessedACommand := '1';
+				hasProcessedACommand <= '1';
 				nextState <= INIT;
 				--else
 				-- nextState <= AFinish; 
@@ -252,10 +251,6 @@ BEGIN
       numWords_bcd(0) <= numWords_bcd_reg(0);
       numWords_bcd(1) <= numWords_bcd_reg(1);
       numWords_bcd(2) <= numWords_bcd_reg(2);
-		END IF;
-		
-		IF clk'EVENT AND clk = '1' AND hasProcessedACommand_en = '1' THEN
-      hasProcessedACommand <= hasProcessedACommand_reg;
 		END IF;
 	END PROCESS; -- counter
 	-----------------------------------------------------
