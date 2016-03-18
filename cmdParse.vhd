@@ -208,20 +208,20 @@ BEGIN
 				-- Final handshaking acknologement for the dataProc module
 			WHEN AFinish => 
 				-- Finished processing
-				--if seqDone = '1' then
-				--char1 := 0;
-				--char2 := 0;
-				--char3 := 0;
-				--char4 := 0;
-				counter_reset <= '1';
+				if seqDone = '1' then
+					--char1 := 0;
+					--char2 := 0;
+					--char3 := 0;
+					--char4 := 0;
+					counter_reset <= '1';
 				
-				hasProcessedACommand_en <= '1';
-				hasProcessedACommand_reg <= '1';
+					hasProcessedACommand_en <= '1';
+					hasProcessedACommand_reg <= '1';
 				
-				nextState <= INIT;
-				--else
-				-- nextState <= AFinish; 
-				--end if;
+					nextState <= INIT;
+				else
+					nextState <= AFinish; 
+				end if;
  
 				-- Initial 3-way handshaking protocol for the L module 
 			WHEN LShake => 
@@ -301,4 +301,5 @@ BEGIN
 		END IF;
 	END PROCESS; -- seq
 	END; -- parseCommands
+
 
