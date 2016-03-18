@@ -32,7 +32,7 @@ ENTITY dataProc IS
 END dataProc;
 
 ARCHITECTURE processData OF dataProc IS
-	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7);
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9);--
 	SIGNAL curState, nextState : state_type;
 BEGIN
 	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone)
@@ -79,31 +79,52 @@ BEGIN
 				stxData <= byte; --- gives the byte given by the data procossor to the Tx module
 				stxNow <= '1'; ---issues a send command
 				nextstate <= S5;
-
- 
-			WHEN S5 => --sets stxNow to 0 and waits to issue the next send 
+				
+			WHEN S5 =>
 				stxData <= byte;
 				stxNow <= '0';
-				IF stxDone = '1' THEN --- waits until Tx modules ready to send again
+				IF stxDone = '0' THEN --- waits until Tx modules is sending
 					nextstate <= S6;
 				ELSE
 					nextstate <= S5;
-				END IF;
+				END IF;			  
+
  
-			WHEN S6 => -- adds a space after every character and issue a send command
+			WHEN S6 => --sets stxNow to 0 and waits to issue the next send 
+				stxData <= byte;
+				IF stxDone = '1' THEN --- waits until Tx modules ready to send again
+					nextstate <= S7;
+				ELSE
+					nextstate <= S6;
+				END IF;
+				
+ 
+			WHEN S7 => -- adds a space after every character and issue a send command
 				stxData <= x"20";
 				stxNow <= '1';
-				nextstate <= S7;
-
-			WHEN S7 => 
-				stxData <= x"20";
+				nextstate <= S8;
+				
+			WHEN S8 =>
+			  stxData <= x"20";
 				stxNow <= '0';
-				IF seqDone = '1' THEN
-					nextstate <= S0;
+				IF stxDone = '0' THEN --- waits until Tx modules is sending
+					nextstate <= S9;
 				ELSE
-					nextstate <= S2;
+					nextstate <= S8;
 				END IF;
- 
+
+			WHEN S9 =>
+			  stxData <= x"20"; 
+				IF stxDone = '1' THEN
+				  IF seqDone = '1' THEN
+					 nextstate <= S0;
+				  ELSE
+					 nextstate <= S2;
+				  END IF;
+        ELSE
+          nextstate <= S9;
+        END IF ;
+        
 		END CASE;
 	END PROCESS; -- datasend
 	-----------------------------------------------------
