@@ -58,7 +58,7 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL counter_reset : std_logic := '0';
 	SIGNAL count : integer := 0;
 	
-	SIGNAL numWords_en : std_logic := '0';
+	SIGNAL numWords_en : integer := 0;
 	SIGNAL numWords_bcd_reset : std_logic := '0';
 	SIGNAL numWords_bcd_reg : BCD_ARRAY_TYPE(2 DOWNTO 0) := ("0000", "0000", "0000");
 	
@@ -81,7 +81,7 @@ BEGIN
 		counter_reset <= '0';
 		cmdNow <= '0';
 		
-		numWords_en <= '0';
+		numWords_en <= 0;
 		numWords_bcd_reset <= '0';
 		numWords_bcd_reg <= ("0000", "0000", "0000");
 		
@@ -168,15 +168,15 @@ BEGIN
 							-- The 3 NNN digits
 							CASE count IS
 								WHEN 0 => 
-								  numWords_en <= '1';
+								  numWords_en <= 1;
 									numWords_bcd_reg(0) <= rxData(3 DOWNTO 0);
 									--char2 := to_integer(rxData);
 								WHEN 1 => 
-								  numWords_en <= '1';
+								  numWords_en <= 2;
 									numWords_bcd_reg(1) <= rxData(3 DOWNTO 0);
 									--char3 := to_integer(rxData);
 								WHEN 2 => 
-								  numWords_en <= '1';
+								  numWords_en <= 3;
 									numWords_bcd_reg(2) <= rxData(3 DOWNTO 0);
 									--char4 := to_integer(rxData);
 								WHEN OTHERS => 
@@ -254,15 +254,27 @@ BEGIN
 	-- Registers to stop latches from being inferrred
 	reg : PROCESS(clk, numWords_en, numWords_bcd_reg, numWords_bcd_reset)
 	BEGIN
-	  IF rising_edge(clk) AND numWords_bcd_reset = '1' THEN
-	    numWords_bcd(0) <= "0000";
-		  numWords_bcd(1) <= "0000";
-		  numWords_bcd(2) <= "0000";
-		ELSIF rising_edge(clk) AND numWords_en = '1' THEN
+--	  IF rising_edge(clk) AND numWords_bcd_reset = '1' THEN
+--	    numWords_bcd(0) <= "0000";
+--		  numWords_bcd(1) <= "0000";
+--		  numWords_bcd(2) <= "0000";
+--		ELSIF rising_edge(clk) AND numWords_en = '1' THEN
+--      numWords_bcd(0) <= numWords_bcd_reg(0);
+--      numWords_bcd(1) <= numWords_bcd_reg(1);
+--      numWords_bcd(2) <= numWords_bcd_reg(2);
+--		END IF;
+  
+    IF rising_edge(clk) AND numWords_en = 1 THEN
       numWords_bcd(0) <= numWords_bcd_reg(0);
+    END IF;
+
+    IF rising_edge(clk) AND numWords_en = 2 THEN
       numWords_bcd(1) <= numWords_bcd_reg(1);
+    END IF;
+    
+    IF rising_edge(clk) AND numWords_en = 3 THEN
       numWords_bcd(2) <= numWords_bcd_reg(2);
-		END IF;
+    END IF;    
 		
 	  IF rising_edge(clk) AND hasProcessedACommand_en = '1' THEN
       hasProcessedACommand <= hasProcessedACommand_reg;
