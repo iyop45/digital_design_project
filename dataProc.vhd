@@ -34,6 +34,7 @@ END dataProc;
 ARCHITECTURE processData OF dataProc IS
 	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9);--
 	SIGNAL curState, nextState : state_type;
+	SIGNAL seqDoneGet : std_logic;
 BEGIN
 	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone)
 	BEGIN
@@ -115,8 +116,8 @@ BEGIN
 
 			WHEN S9 =>
 			  stxData <= x"20"; 
-				IF stxDone = '1' THEN
-				  IF seqDone = '1' THEN
+				IF stxDone = '1' THEN ---waits until Tx has sent the space
+				  IF seqDoneGet = '1' THEN --- checks to see if all words have been processed
 					 nextstate <= S0;
 				  ELSE
 					 nextstate <= S2;
@@ -127,6 +128,15 @@ BEGIN
         
 		END CASE;
 	END PROCESS; -- datasend
+		-----------------------------------------------------
+	seqDoneCheck : PROCESS (clk, seqDone, curstate)
+	BEGIN
+		IF seqDone = '1' AND clk'EVENT AND clk = '1' THEN
+			seqDoneGet <= '1';
+		ELSIF clk'EVENT AND clk = '1' AND curstate = S0 THEN
+			seqDoneGet <= '0';
+		END IF;
+	END PROCESS; -- Checks for if the Data processing is done
 	-----------------------------------------------------
 	seq_state : PROCESS (clk, reset)
 	BEGIN
