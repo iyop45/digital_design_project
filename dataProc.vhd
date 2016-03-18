@@ -36,7 +36,7 @@ ARCHITECTURE processData OF dataProc IS
 	SIGNAL curState, nextState : state_type;
 	SIGNAL seqDoneGet : std_logic;
 BEGIN
-	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone)
+	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone, seqDoneGet)
 	BEGIN
 		cmdRecieve <= '0';
 		start <= '0';
@@ -46,6 +46,7 @@ BEGIN
 	
 		CASE curState IS
 			WHEN S0 => 
+			
 				TxHold <= '0';
 				--- tells us when a new byte can be sent through the Tx module and that a start has been sent through the Rx module
 				IF cmdNow = '1' THEN
@@ -131,10 +132,12 @@ BEGIN
 		-----------------------------------------------------
 	seqDoneCheck : PROCESS (clk, seqDone, curstate)
 	BEGIN
-		IF seqDone = '1' AND clk'EVENT AND clk = '1' THEN
-			seqDoneGet <= '1';
-		ELSIF clk'EVENT AND clk = '1' AND curstate = S0 THEN
+		IF clk'EVENT AND clk = '1' AND curstate = S0 THEN
 			seqDoneGet <= '0';
+		END IF;	
+	
+		IF seqDone = '1' THEN
+			seqDoneGet <= '1';
 		END IF;
 	END PROCESS; -- Checks for if the Data processing is done
 	-----------------------------------------------------
