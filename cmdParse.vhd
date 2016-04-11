@@ -193,7 +193,11 @@ BEGIN
 							END CASE;
 
 							counter_enable <= '1';
-							nextState <= FIRST;
+							
+							stxNow <= '1';
+							stxData <= rxData;							
+							
+							nextState <= STXDATA_WAIT;
 						ELSE
 							-- Not an integer
 							nextState <= FIRST;
@@ -310,6 +314,7 @@ BEGIN
 		END IF;
 	END PROCESS; -- seq
 	END; -- parseCommands
+
 
 
 
