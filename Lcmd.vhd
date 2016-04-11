@@ -75,7 +75,7 @@ BEGIN
 			WHEN S3 =>
 			  stxnow <= '0';
 			  stxdata <= dataresults(count);
-			  IF stxdone = '0' THEN 
+			  IF stxdone = '0' THEN --- waits until Tx modules is sending before the module can wait until it the byte has been sent
 			    nextstate <= S4;
 			  ELSE
 			    nextstate <= S3;
@@ -101,7 +101,7 @@ BEGIN
       WHEN S6 =>
         stxdata <= x"20";
         stxnow <= '0';
-        IF stxdone = '0' THEN
+        IF stxdone = '0' THEN --- waits until Tx modules is sending before the module can wait until it the byte has been sent
           nextstate <= S7;
         ELSE
           nextstate <= S6;
