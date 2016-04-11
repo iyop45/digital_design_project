@@ -27,7 +27,7 @@ ENTITY Pcmd IS
 END Pcmd;
 
 ARCHITECTURE Pcommand OF Pcmd IS
-	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7);
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10);
 	SIGNAL curState, nextState : state_type;
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic;
@@ -35,14 +35,17 @@ ARCHITECTURE Pcommand OF Pcmd IS
 BEGIN
 	dataSend : PROCESS(stxDone, pNow, count, maxIndex, dataResults, curState)
 	BEGIN
-		stxNow <= '0';
-		stxData <= "00000000";
+		stxNow <= '0';---
+		stxData <= x"20";
 		counter_enable <= '0';
 		counter_reset <= '0';
+		TxHold <= '1';
+		pRecieve <= '0';
 	
 		CASE curState IS 
 			--- handshake to the module to ensure tha the rxdata has recieved an P or p
 			WHEN S0 => 
+			  TxHold <= '0';
 				counter_reset <= '1';
 				stxNow <= '0'; 
 				IF pNow = '1' THEN
@@ -53,6 +56,7 @@ BEGIN
  
 				--- handshake back to the cmdparce to say that we know that an P or p has been recieved 
 			WHEN S1 => 
+			  TxHold <= '1';
 				counter_reset <= '0';
 				pRecieve <= '1';
 				IF pNow = '0' THEN
@@ -67,49 +71,75 @@ BEGIN
 				stxNow <= '1';
 				pRecieve <= '0';
 				nextstate <= S3;
- 
-				--- sets txNow = 0 so that it has only been high for a single clock cycle, as per specification 
-			WHEN S3 => 
+				
+				WHEN S3 => 
+			  stxData <= dataResults(3);
 				stxNow <= '0';
-				IF stxDone = '1' THEN
+				IF stxDone = '0' THEN
 					nextstate <= S4;
 				ELSE
 					nextstate <= S3;
 				END IF;
+ 
+				--- sets txNow = 0 so that it has only been high for a single clock cycle, as per specification 
+			WHEN S4 => 
+			  stxData <= dataResults(3);
+				IF stxDone = '1' THEN
+					nextstate <= S5;
+				ELSE
+					nextstate <= S4;
+				END IF;
 
  
 				--- sends a space to the output 
-			WHEN S4 => 
-				stxData <= x"50"; -- space at the output
-				stxNow <= '1';
-				nextstate <= S5;
- 
 			WHEN S5 => 
+				stxData <= x"20"; -- space at the output
+				stxNow <= '1';
+				nextstate <= S6;
+				
+			WHEN S6 => 
+			  stxData <= x"20";
 				stxNow <= '0';
-				IF stxDone = '1' THEN -- checks to see when Tx is ready to send the next byte
-					nextstate <= S6;
+				IF stxDone = '0' THEN
+					nextstate <= S7;
 				ELSE
-					nextstate <= S5;
+					nextstate <= S6;
 				END IF;
  
-			WHEN S6 => 
+			WHEN S7 => 
+			  stxData <= x"20";
+				IF stxDone = '1' THEN -- checks to see when Tx is ready to send the next byte
+					nextstate <= S8;
+				ELSE
+					nextstate <= S7;
+				END IF;
+				
+			WHEN S8 => 
 				stxData <= "0011" & maxIndex(2 - count);--- converts the numbers on Maxindex to ascii characters
 				stxNow <= '1';
 				counter_enable <= '1';
-				nextstate <= S7;
- 
- 
-			WHEN S7 => 
+				nextstate <= S9;
+				
+			WHEN S9 =>
+				stxData <= "0011" & maxIndex(2 - count); 
 				counter_enable <= '0';
 				stxNow <= '0';
+				IF stxDone = '0' THEN 
+					nextstate <= S10; 
+				ELSE
+          nextstate <= S9;
+				END IF;
+ 
+			WHEN S10 =>
+				stxData <= "0011" & maxIndex(2 - count); 
 				IF stxDone = '1' THEN --- checks to see when the Tx module is ready to send the next byte
 					IF count = 3 THEN --- checks to see that the whole neumber on the maxindex line has been sent
 						nextstate <= S0;
 					ELSE
-						nextstate <= S6;
+						nextstate <= S5;
 					END IF; 
 				ELSE
-					nextstate <= S7;
+					nextstate <= S10;
 				END IF;
 
 			WHEN OTHERS => 
@@ -137,3 +167,4 @@ BEGIN
 	END PROCESS; --clock
 	-----------------------------------------------------
 	END;
+
