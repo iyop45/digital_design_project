@@ -34,12 +34,12 @@ ARCHITECTURE Lcommand OF Lcmd IS
 BEGIN
 	combi_nextState : PROCESS(clk, curState, lNow, dataResults, stxDone, Count)
 	BEGIN
-		counter_reset <= '0';
-		lRecieve <= '0';
-		counter_enable <= '0';
-		stxData <= "00000000";
-		stxNow <= '0';
-		TxHold <= '0';
+		counter_reset <= '0';---
+		lRecieve <= '0'; ---
+		counter_enable <= '0';---
+		stxData <= x"20";
+		stxNow <= '0';---
+		TxHold <= '1'; ---
 		
 	
 		CASE curState IS
@@ -71,26 +71,44 @@ BEGIN
 				stxNow <= '1';
 				lRecieve <= '0';
 				nextstate <= S3;
- 
+				
+			WHEN S3 =>
+			  stxnow <= '0';
+			  stxdata <= dataresults(count);
+			  IF stxdone = '0' THEN 
+			    nextstate <= S4;
+			  ELSE
+			    nextstate <= S3;
+			  END IF;
+			      
 				-- waits until the Tx moduls finishes sending the current byte before issuing the send of the next byte 
-			WHEN S3 => 
-				stxNow <= '0';
-				IF stxDone = '1' THEN
-					nextstate <= S4;
-				ELSE
-					nextstate <= S3;
-				END IF;
-
- 
-				--- sends a space to the output as per specification 
 			WHEN S4 => 
-				counter_enable <= '1'; 
-				stxData <= x"50"; -- space at the output after each dataResult is sent
-				stxNow <= '1';
-				nextstate <= S5;
- 
+				stxData <= dataResults(count);
+				IF stxDone = '1' THEN
+					nextstate <= S5;
+				ELSE
+					nextstate <= S4;
+				END IF;
+				
+
+				--- sends a space to the output as per specification 
 			WHEN S5 => 
-				stxNow <= '0';
+				counter_enable <= '1'; 
+				stxData <= x"20"; -- space at the output after each dataResult is sent
+				stxNow <= '1';
+				nextstate <= S6;
+				
+      WHEN S6 =>
+        stxdata <= x"20";
+        stxnow <= '0';
+        IF stxdone = '0' THEN
+          nextstate <= S7;
+        ELSE
+          nextstate <= S6;
+        END IF;
+ 
+			WHEN S7 => 
+			  stxData <= x"20";
 				IF stxDone = '1' THEN --- waits for the Tx module to be ready to send the next bytes
 					IF Count = 7 THEN --- Check to see if all the data result bytes have been sent to stxData to ensure all bytes have been sent
 						nextstate <= S0;
@@ -98,8 +116,9 @@ BEGIN
 						nextstate <= S2;
 					END IF;
 				ELSE
-					nextstate <= S5;
+					nextstate <= S7;
 				END IF;
+				
 			WHEN OTHERS => 
 				nextstate <= S0;
 		END CASE;
@@ -127,3 +146,4 @@ BEGIN
 	-----------------------------------------------------
 	END;
 	-----------------------------------------------------
+
