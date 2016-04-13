@@ -22,10 +22,10 @@ END dataConsume;
 
 ARCHITECTURE detectorArch OF dataConsume IS
 
-	TYPE state_type IS (S0, S1, S2, S3, S4, S5);
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6);
 	SIGNAL curState, nextState : state_type;
 	SIGNAL peakvalue, peakValue_reg : std_logic_vector(7 DOWNTO 0) := "00000000";
-	SIGNAL ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable, subtract_enable, Toggle, c_en, indexpk_en, peakValue_en : std_logic := '0';
+	SIGNAL ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable, subtract_enable, Toggle, c_en, indexpk_en, peakValue_en, startGet : std_logic := '0';
 	SIGNAL ctrlIn_delayed, ctrlIn_detected : std_logic;
 	SIGNAL allData : CHAR_ARRAY_TYPE(0 TO 998);
 	SIGNAL index, indexpk, indexpk_reg, start_index : INTEGER := 0;
@@ -74,7 +74,7 @@ ARCHITECTURE detectorArch OF dataConsume IS
 
 BEGIN
 	------------------------------------------------------
-	combi_nextState : PROCESS(clk, curState, start, counterOut, numWords, ctrlIn_detected, peakValueSmaller, hold, index, indexpk_bcd, alldata, start_index)
+	combi_nextState : PROCESS(clk, curState, start, counterOut, numWords, ctrlIn_detected, peakValueSmaller, hold, index, indexpk_bcd, alldata, start_index, startGet)
 	BEGIN
 		--Setting the signals to an initial value to remove latches.
 		count_reset <= '0';
@@ -113,7 +113,7 @@ BEGIN
 				seqDone <= '0';
 				count_reset <= '1';
 				--Checks to see if a start command has been recieved before starting the retreival process.
-				IF start = '1' THEN
+				IF startGet = '1' THEN
 					--ctrlOut_reg <= '0';
 					Toggle <= '0';
 					shift_enable <= '0';
@@ -183,15 +183,16 @@ BEGIN
 				--Checks if the start signal is high and if true then send the next byte in sequence to the command processor.
 			WHEN S4 => 
 				--subtract_enable <= '0';
-				nextState <= S1;
-				IF start = '1' THEN
-					dataready <= '1';
+				nextState <= S6;
+				IF startGet = '1' THEN	
+				  dataready <= '1'; 
 					IF index /= 0 THEN
 						byte_en <= '1';
 						byte_reg <= allData(start_index - 1);
 					ELSE
 						byte_en <= '1';
 						byte_reg <= allData(0);
+					--startGet <= '0';
 					END IF;
 				ELSE NULL;
 				END IF;
@@ -200,6 +201,14 @@ BEGIN
 			WHEN S5 => 
 				seqDone <= '1';
 				nextState <= S0;
+
+      -- Wait state
+      WHEN S6 =>
+       IF startGet ='1' THEN
+        nextState <= S1;
+      ELSE       
+        nextState <= S6;
+      end IF;
 
 				--Enters initial state otherwise.
 			WHEN OTHERS => 
@@ -219,6 +228,17 @@ BEGIN
 			ctrlIn_detected <= ctrlIn XOR ctrlIn_delayed;
 		END IF;
 	END PROCESS;
+	------------------------------------------------------
+		startCheck : PROCESS (clk, curState, Start)
+	BEGIN
+		IF clk'EVENT AND clk = '1' AND curState = S4 THEN
+					startGet <= '0';
+		END IF;	
+	
+		IF Start = '1' THEN
+			startGet <= '1';
+		END IF;
+	END PROCESS; -- Checks for if the Data processing is done
 	------------------------------------------------------
 	ctrl_out_toggle : PROCESS (clk, Toggle)
 	BEGIN
