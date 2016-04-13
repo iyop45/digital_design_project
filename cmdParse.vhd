@@ -58,7 +58,7 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL counter_reset : std_logic := '0';
 	SIGNAL count : integer := 0;
 	
-	SIGNAL numWords_en : integer := 0;
+	SIGNAL numWords_en : integer := 0; -- Needs to be an integer as it can enable different writes
 	SIGNAL numWords_bcd_reset : std_logic := '0';
 	SIGNAL numWords_bcd_reg : BCD_ARRAY_TYPE(2 DOWNTO 0) := ("0000", "0000", "0000");
 	
@@ -67,8 +67,6 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL hasProcessedACommand : std_logic := '0';
 BEGIN
 	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve, numWords_bcd_reg, hasProcessedACommand)
-		-- char variables are used for debugging
-		-- variable char1, char2, char3, char4 : integer := 0;
 	BEGIN
 		stxNow <= '0';
 		stxData <= "00000000";
@@ -179,15 +177,12 @@ BEGIN
 								WHEN 0 => 
 								  numWords_en <= 1;
 									numWords_bcd_reg(0) <= rxData(3 DOWNTO 0);
-									--char2 := to_integer(rxData);
 								WHEN 1 => 
 								  numWords_en <= 2;
 									numWords_bcd_reg(1) <= rxData(3 DOWNTO 0);
-									--char3 := to_integer(rxData);
 								WHEN 2 => 
 								  numWords_en <= 3;
 									numWords_bcd_reg(2) <= rxData(3 DOWNTO 0);
-									--char4 := to_integer(rxData);
 								WHEN OTHERS => 
 									NULL;
 							END CASE;
@@ -199,7 +194,6 @@ BEGIN
 							
 							nextState <= STXDATA_WAIT;
 						ELSE
-							-- Not an integer
 							nextState <= FIRST;
 						END IF;
 					ELSE
@@ -222,10 +216,6 @@ BEGIN
 			WHEN AFinish => 
 				-- Finished processing
 				if seqDone = '1' then
-					--char1 := 0;
-					--char2 := 0;
-					--char3 := 0;
-					--char4 := 0;
 					counter_reset <= '1';
 				
 					hasProcessedACommand_en <= '1';
@@ -313,6 +303,7 @@ BEGIN
 			curState <= nextState;
 		END IF;
 	END PROCESS; -- seq
+	
 	END; -- parseCommands
 
 
