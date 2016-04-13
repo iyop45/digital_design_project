@@ -40,7 +40,7 @@ BEGIN
 	BEGIN
 		cmdRecieve <= '0';
 		start <= '0';
-		stxData <= x"20";
+		stxData <= byte;
 		stxNow <= '0';
 		TxHold <= '1';
 	
@@ -152,4 +152,5 @@ BEGIN
 	----------------------------------------------------- 
  
 	END; -- processData
+
 
