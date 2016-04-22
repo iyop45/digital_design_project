@@ -69,19 +69,19 @@ use ieee.std_logic_unsigned.all;
 
 entity UART_RX_CTRL is
   port(
-    RxD: in std_logic; 			-- serial data in
-	  sysclk: in std_logic; 		-- system clock
-	  reset: in std_logic;		--	synchronous reset
-	  rxDone: in std_logic;		-- data succesfully read (active high)
-    rcvDataReg: out std_logic_vector(7 downto 0); -- received data
-    dataReady: out std_logic;	-- data ready to be read
-	  setOE: out std_logic;		-- overrun error (active high)
-	  setFE: out std_logic		-- frame error (active high)
+   RxD: in std_logic; 			-- serial data in
+	 sysclk: in std_logic; 		-- system clock
+	 reset: in std_logic;		--	synchronous reset
+	 rxDone: in std_logic;		-- data succesfully read (active high)
+   rcvDataReg: out std_logic_vector(7 downto 0); -- received data
+   dataReady: out std_logic;	-- data ready to be read
+	 setOE: out std_logic;		-- overrun error (active high)
+	 setFE: out std_logic		-- frame error (active high)
   );
 end UART_RX_CTRL; 
 
 
-architecture RCVR of UART_RX_CTRL is
+architecture rcvr2 of UART_RX_CTRL is
 
 	-- constant to generate 8x oversampling clock
 	-- baudClk_max =(round(100MHz / 9600)) - 1 = 10416
@@ -106,7 +106,7 @@ begin
   receiver_nextState: process(currentState, baudClkX8Count, bitCount, RxD, regFull, rxDone, rcvShiftReg) 
   begin
 	 -- assign defaults at the beginning to avoid assigning in every branch
-   setFE <= '0'; setOE <= '1'; 
+    setFE <= '0'; setOE <= '1'; 
 	 enable_baudClkX8Count <= TRUE;
     case currentState is
       when IDLE => 
@@ -248,5 +248,4 @@ begin
  
   dataReady <= regFull;
    
-end RCVR;
-
+end rcvr2;
