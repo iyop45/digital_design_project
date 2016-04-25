@@ -16,6 +16,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.common_pack.all;
 
 entity TEST_TOP is 
 	port (
@@ -124,8 +125,33 @@ architecture STRUCT of TEST_TOP is
 	for rx: UART_RX_CTRL use
 	  entity work.UART_RX_CTRL(rcvr2);
 
-	signal sig_rxnow, sig_rxdone, sig_overr, sig_framerr, sig_txnow, sig_txdone: std_logic;
-	signal sig_rxdata, sig_txdata: std_logic_vector (7 downto 0);
+--	signal sig_rxnow, sig_rxdone, sig_overr, sig_framerr, sig_txnow, sig_txdone: std_logic;
+--	signal sig_rxdata, sig_txdata: std_logic_vector (7 downto 0);
+
+  signal sig_start, ctrl_genDriv, ctrl_consDriv, sig_dataReady, sig_seqDone: std_logic;
+  signal sig_rxDone, sig_rxNow, sig_ovErr, sig_framErr, sig_txNow, sig_txDone: std_logic;
+  signal sig_rx, sig_tx, sig_rx_debug: std_logic;
+  
+  signal sig_rxData, sig_txData, sig_byte: std_logic_vector(7 downto 0);
+  signal sig_maxIndex: BCD_ARRAY_TYPE(2 downto 0);
+  
+  signal sig_dataResults: CHAR_ARRAY_TYPE(0 to 6);
+  signal sig_numWords_bcd: BCD_ARRAY_TYPE(2 downto 0);
+  
+  signal sig_data: std_logic_vector(7 downto 0);
+  signal seqCount: integer :=0;
+  
+  constant SEQ_COUNT_MAX : integer := 1; -- defines how many runs to test
+  type ARRAY3D_TYPE is array (0 to SEQ_COUNT_MAX) of CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
+  type ARRAY3D_BCD_TYPE is array (0 to SEQ_COUNT_MAX) of BCD_ARRAY_TYPE(2 downto 0);
+  
+ 
+  constant RESULTS : ARRAY3D_TYPE :=((X"92", X"C7", X"71", X"F9", X"93", X"A8", X"68"),
+                                     (X"5D", X"49", X"52", X"EB", X"70", X"3B", X"39"));
+
+  constant peak : ARRAY3D_BCD_TYPE :=((X"0",X"0",X"7"),(X"0",X"0",X"5"));
+	
+	
 begin 
 
 --control:	CONTROL_UNIT_TST
