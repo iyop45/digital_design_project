@@ -334,13 +334,13 @@ BEGIN
 	stored_result : PROCESS (clk, store_enable)
 	BEGIN
 		IF rising_edge(clk) AND store_enable = '1' THEN
-			dataResults(6) <= allData(indexpk - 3);
-			dataResults(5) <= allData(indexpk - 2);
-			dataResults(4) <= allData(indexpk - 1);
+			dataResults(0) <= allData(indexpk - 3);
+			dataResults(1) <= allData(indexpk - 2);
+			dataResults(2) <= allData(indexpk - 1);
 			dataResults(3) <= allData(indexpk);
-			dataResults(2) <= allData(indexpk + 1);
-			dataResults(1) <= allData(indexpk + 2);
-			dataResults(0) <= allData(indexpk + 3);
+			dataResults(4) <= allData(indexpk + 1);
+			dataResults(5) <= allData(indexpk + 2);
+			dataResults(6) <= allData(indexpk + 3);
 		ELSE NULL;
 		END IF;
 	END PROCESS;
