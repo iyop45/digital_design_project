@@ -108,7 +108,7 @@ BEGIN
 						WHEN "01100001" | "01000001" => -- a or A
 							--char1 := to_integer(rxData);
 
-							stxNow <= '1';
+							--stxNow <= '1';
 							
 							stxData_en <= '1';
 							stxData_reg <= rxData;
@@ -162,6 +162,7 @@ BEGIN
 				
 			WHEN TEMP =>
 			 rxDone <= '1';
+			 stxNow <= '1'; 
 			 nextState <= STXDATA_WAIT;	
 				
 			WHEN STXDATA_WAIT =>
@@ -231,7 +232,7 @@ BEGIN
 
 							counter_enable <= '1';
 							
-							stxNow <= '1';
+							--stxNow <= '1';
 							
 							stxData_en <= '1';
 							stxData_reg <= rxData;				
