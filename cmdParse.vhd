@@ -52,7 +52,7 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	-- No interruption while processing the NNN bytes
 	-- Each byte printing in hexadecimal format
  
-	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake); 
+	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake, TEMP); 
 	SIGNAL curState, nextState : state_type;
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic := '0';
@@ -65,15 +65,28 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL hasProcessedACommand_en : std_logic := '0';
 	SIGNAL hasProcessedACommand_reg : std_logic := '0';
 	SIGNAL hasProcessedACommand : std_logic := '0';
+	
+	SIGNAL hasSetRxDoneHigh : std_logic := '0';
+	SIGNAL hasSetRxDoneHigh_en : std_logic := '0';
+	SIGNAL hasSetRxDoneHigh_reg : std_logic := '0';
+	
+	SIGNAL stxData_en : std_logic := '0';
+	SIGNAL stxData_reg : std_logic_vector (7 DOWNTO 0) := "00000000"; 
 BEGIN
 	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve, numWords_bcd_reg, hasProcessedACommand)
 	BEGIN
+	  hasSetRxDoneHigh_reg <= '0';
+	  hasSetRxDoneHigh_en <= '0';
+	  rxDone <= '0';
+	  
 		stxNow <= '0';
-		stxData <= "00000000";
+		
+		stxData_en <= '0';
+		stxData_reg <= "00000000";
 		
 		lNow <= '0';
 		pNow <= '0';
-		rxdone <= '0';
+		--rxdone <= '0';
 		
 		counter_enable <= '0';
 		counter_reset <= '0';
@@ -96,9 +109,14 @@ BEGIN
 							--char1 := to_integer(rxData);
 
 							stxNow <= '1';
-							stxData <= rxData;
+							
+							stxData_en <= '1';
+							stxData_reg <= rxData;
+							
+							--rxDone <= '1';BLEH
 
-							nextState <= STXDATA_WAIT;
+							--nextState <= STXDATA_WAIT;
+							nextState <= TEMP;
  
 							-- Print 3 bytes preceeding the peak byte
 						WHEN "01101100" | "01001100" => -- l or L
@@ -107,7 +125,9 @@ BEGIN
 								lNow <= '1';
 
 								stxNow <= '1';
-								stxData <= rxData; 
+								
+  							  stxData_en <= '1';
+							  stxData_reg <= rxData;
 
 								nextState <= LShake;
 							ELSE		
@@ -121,7 +141,9 @@ BEGIN
 								pNow <= '1';
 
 								stxNow <= '1';
-								stxData <= rxData; 
+								
+							  stxData_en <= '1';
+							  stxData_reg <= rxData;
 
 								nextState <= PShake;
 							ELSE
@@ -134,13 +156,22 @@ BEGIN
 					END CASE;
 				ELSE
 					-- Keep waiting until rxnow is 1 (data is ready to read)
-					rxdone <= '0';
+					--rxdone <= '0';
 					nextState <= INIT;
 				END IF;
 				
+			WHEN TEMP =>
+			 rxDone <= '1';
+			 nextState <= STXDATA_WAIT;	
+				
 			WHEN STXDATA_WAIT =>
+			  rxDone <= '0';
+			  
 			  stxNow <= '0';
-			  stxData <= rxData;
+			  
+				stxData_en <= '1';
+				stxData_reg <= rxData;
+			  
 				IF stxDone = '0' THEN --- waits until Tx modules is sending
 					nextstate <= FIRST;
 				ELSE
@@ -148,29 +179,40 @@ BEGIN
 				END IF;	
  
 			WHEN FIRST => 
+			  --hasSetRxDoneHigh_en <= '1';
+			  --hasSetRxDoneHigh_reg <= '0';			  
+			  
+			  rxDone <= '0';
+			  
 				-- Recieved a character
 				-- Wait for rxnow to become 0
 				counter_enable <= '0';
 
-				stxData <= rxData;
+				stxData_en <= '1';
+				stxData_reg <= rxData;
 				stxNow <= '0';
  
 				IF rxnow = '0' AND stxDone = '1' THEN
-					rxdone <= '0';
+					--rxdone <= '0';
 					nextState <= SECOND;
 				ELSE
-					rxdone <= '1';
+					--rxdone <= '1';
 					nextState <= FIRST;
 				END IF; 
- 
+				
 			WHEN SECOND => 
 				IF count = 3 THEN
 					-- Nothing yet
 					cmdNow <= '1';
 					nextState <= AStart; 
 				ELSE
+				  rxDone <= '0';
+				  
 					IF rxnow = '1' THEN -- If data is ready to read
 						-- Every keystroke needs to be printed
+						
+            --rxDone <= '1';
+						
 						IF rxData(7 DOWNTO 4) = "0011" AND (rxData(3 DOWNTO 0) > "0000" OR rxData(3 DOWNTO 0) < "1001") THEN -- Check if byte is a valid ascii integer
 							-- The 3 NNN digits
 							CASE count IS
@@ -190,9 +232,12 @@ BEGIN
 							counter_enable <= '1';
 							
 							stxNow <= '1';
-							stxData <= rxData;							
 							
-							nextState <= STXDATA_WAIT;
+							stxData_en <= '1';
+							stxData_reg <= rxData;				
+							
+							--nextState <= STXDATA_WAIT;
+							nextState <= TEMP;
 						ELSE
 							nextState <= FIRST;
 						END IF;
@@ -253,9 +298,16 @@ BEGIN
 		
 	END PROCESS; -- combi_nextState 
 
+--  rxReader : PROCESS(clk, hasReadRxData)
+--  BEGIN
+--    IF rising_edge(clk) AND hasReadRxData = '1' THEN
+--      rxDone <= '1';
+--      hasReadRxData <= '0';
+--    END IF;
+--  END PROCESS;
 	-----------------------------------------------------	
 	-- Registers to stop latches from being inferrred
-	reg : PROCESS(clk, numWords_en, numWords_bcd_reg, numWords_bcd_reset)
+	reg : PROCESS(clk, numWords_en, numWords_bcd_reg, numWords_bcd_reset, hasProcessedACommand_en, hasSetRxDoneHigh_en, stxData_en)
 	BEGIN
 --	  IF rising_edge(clk) AND numWords_bcd_reset = '1' THEN
 --	    numWords_bcd(0) <= "0000";
@@ -279,6 +331,14 @@ BEGIN
       numWords_bcd(0) <= numWords_bcd_reg(2);
     END IF;    
 		
+	  IF rising_edge(clk) AND hasSetRxDoneHigh_en = '1' THEN
+      hasSetRxDoneHigh <= hasSetRxDoneHigh_reg;
+		END IF;
+
+	  IF rising_edge(clk) AND stxData_en = '1' THEN
+      stxData <= stxData_reg;
+		END IF;
+
 	  IF rising_edge(clk) AND hasProcessedACommand_en = '1' THEN
       hasProcessedACommand <= hasProcessedACommand_reg;
 		END IF;
@@ -305,6 +365,7 @@ BEGIN
 	END PROCESS; -- seq
 	
 	END; -- parseCommands
+
 
 
 
