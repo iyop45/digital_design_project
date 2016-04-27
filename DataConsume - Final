@@ -47,6 +47,8 @@ ARCHITECTURE detectorArch OF dataConsume IS
 
 	SIGNAL counterOut, numWords, indexPk_bcd : std_logic_vector(11 DOWNTO 0);
 	SIGNAL FirstTime : std_logic := '0';
+	SIGNAL FirstTime_en : std_logic := '0';
+	SIGNAL FirstTime_reg : std_logic := '0';
 
 	--curState - Current State.
 	--nextState - next State.
@@ -79,9 +81,12 @@ ARCHITECTURE detectorArch OF dataConsume IS
 
 BEGIN
 	------------------------------------------------------
-	combi_nextState : PROCESS(clk, chold, curState, start, counterOut, numWords, ctrlIn_detected, peakValueSmaller, hold, index, indexpk_bcd, alldata, start_index, startGet)
+	combi_nextState : PROCESS(clk, chold, curState, start, counterOut, numWords, ctrlIn_detected, peakValueSmaller, hold, index, indexpk_bcd, alldata, start_index, startGet, firsttime)
 	BEGIN
 		--Setting the signals to an initial value to remove latches.
+		FirstTime_reg <= '0';
+		FirstTime_en <= '0';
+		
 		count_reset <= '0';
 		shift_enable <= '0';
 		store_enable <= '0';
@@ -127,7 +132,10 @@ BEGIN
 					 Toggle <= '0';
 					 shift_enable <= '0';
 					 store_enable <= '0';
-
+					 
+					 FirstTime_en <= '1';
+					 FirstTime_reg <= '1';
+					 
 					 hold_en <= '1';
 					 hold_reg <= '1';
 
@@ -143,7 +151,7 @@ BEGIN
 			WHEN S1 => 
 				count_reset <= '0';
 				dataReady <= '0';
-				FirstTime <= '1';
+				
 				--If all of the data has been processed then the final data values are passed to the command processor.
 				--std_logic_vector(unsigned(counter1(3 DOWNTO 0)) - ("0010"))
 				IF std_logic_vector(unsigned(counterOut(11 DOWNTO 0)) + ("000000000001")) = numWords THEN
@@ -280,7 +288,7 @@ BEGIN
 	END PROCESS;
 	------------------------------------------------------
 	-- Registers to stop latches from being inferred
-	reg : PROCESS (clk, hold_en, byte_en, maxIndex_en, c_en, indexPk_en, peakValue_en, chold_en)
+	reg : PROCESS (clk, hold_en, byte_en, maxIndex_en, c_en, indexPk_en, peakValue_en, chold_en, FirstTime_en)
 	BEGIN
 		IF rising_edge(clk) THEN 
 		  IF hold_en = '1' THEN
@@ -295,6 +303,10 @@ BEGIN
 
 		  IF chold_en = '1' THEN
 			 chold <= chold_reg;
+		  END IF;
+
+		  IF FirstTime_en = '1' THEN
+			 FirstTime <= FirstTime_reg;
 		  END IF;
 
 		  IF c_en = '1' THEN
@@ -361,8 +373,10 @@ BEGIN
 	--Stores the bytes of data from the generator into an index.
 	data_store : PROCESS (clk, shift_enable)
 	BEGIN
-		IF rising_edge(clk) AND shift_enable = '1' THEN
-			allData(index) <= data;
+		IF rising_edge(clk) THEN 
+			IF shift_enable = '1' THEN
+				allData(index) <= data;
+			END IF;
 		END IF;
 	END PROCESS;
 	------------------------------------------------------
@@ -442,9 +456,9 @@ BEGIN
 	END PROCESS;
 	------------------------------------------------------
 	--Goes back to the first state when reset, else chnages state on a rising clock edge.
-	seq_state : PROCESS (clk, reset)
+		seq_state : PROCESS (clk, reset)
 	BEGIN
-		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+		IF reset = '1' AND rising_edge(clk) THEN
 			curState <= S0;
 		ELSIF clk'EVENT AND clk = '1' THEN
 			curState <= nextState;
