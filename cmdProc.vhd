@@ -166,6 +166,8 @@ BEGIN
 	tx_print : PROCESS(clk)
 	BEGIN
 		IF clk'EVENT AND clk = '1' THEN
+		  txNow <= '0';
+		  txData <= "11111111";
 		  
 			-- set Tx inputs to value of internal signal
 			IF dataProc_TxHold = '1' THEN
