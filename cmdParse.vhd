@@ -25,6 +25,9 @@ ENTITY cmdParse IS
 		stxnow : OUT std_logic;
 		stxdone : IN std_logic;
 		numWords_bcd : OUT BCD_ARRAY_TYPE(2 DOWNTO 0);
+		
+		startFormat : OUT std_logic;
+		finishFormat : IN std_logic;
  
 		cmdNow : OUT std_logic; 
 		cmdRecieve : IN std_logic;
@@ -52,7 +55,7 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	-- No interruption while processing the NNN bytes
 	-- Each byte printing in hexadecimal format
  
-	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake, TEMP); 
+	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake, VALIDINPUT, BADINPUT, FORMATTING); 
 	SIGNAL curState, nextState : state_type;
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic := '0';
@@ -75,6 +78,8 @@ ARCHITECTURE parseCommands OF cmdParse IS
 BEGIN
 	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve, numWords_bcd_reg, hasProcessedACommand)
 	BEGIN
+	  startFormat <= '0';
+	  
 	  hasSetRxDoneHigh_reg <= '0';
 	  hasSetRxDoneHigh_en <= '0';
 	  rxDone <= '0';
@@ -103,12 +108,13 @@ BEGIN
 			WHEN INIT => 
  
 				IF rxnow = '1' THEN
+					--stxNow <= '1';
 					CASE rxData IS
  
 						WHEN "01100001" | "01000001" => -- a or A
 							--char1 := to_integer(rxData);
 
-							--stxNow <= '1';
+							--stxNow <= '0';
 							
 							stxData_en <= '1';
 							stxData_reg <= rxData;
@@ -116,7 +122,7 @@ BEGIN
 							--rxDone <= '1';BLEH
 
 							--nextState <= STXDATA_WAIT;
-							nextState <= TEMP;
+							nextState <= VALIDINPUT;
  
 							-- Print 3 bytes preceeding the peak byte
 						WHEN "01101100" | "01001100" => -- l or L
@@ -124,7 +130,7 @@ BEGIN
 							IF seqDone = '1' AND hasProcessedACommand = '1' THEN
 								lNow <= '1';
 
-								stxNow <= '1';
+								--stxNow <= '1';
 								
   							  stxData_en <= '1';
 							  stxData_reg <= rxData;
@@ -140,7 +146,7 @@ BEGIN
 							IF seqDone = '1' AND hasProcessedACommand = '1' THEN
 								pNow <= '1';
 
-								stxNow <= '1';
+								--stxNow <= '1';
 								
 							  stxData_en <= '1';
 							  stxData_reg <= rxData;
@@ -151,7 +157,10 @@ BEGIN
 							END IF;
  
 						WHEN OTHERS =>
-							nextState <= INIT;
+							stxData_en <= '1';
+							stxData_reg <= rxData;
+							
+							nextState <= BADINPUT;
  
 					END CASE;
 				ELSE
@@ -160,15 +169,21 @@ BEGIN
 					nextState <= INIT;
 				END IF;
 				
-			WHEN TEMP =>
+			WHEN BADINPUT =>
+			 counter_reset <= '1';
+		   stxNow <= '1';
 			 rxDone <= '1';
-			 stxNow <= '1'; 
+			 nextState <= INIT;	
+				
+			WHEN VALIDINPUT =>
+		   stxNow <= '1';
+			 rxDone <= '1';
 			 nextState <= STXDATA_WAIT;	
 				
 			WHEN STXDATA_WAIT =>
 			  rxDone <= '0';
 			  
-			  stxNow <= '0';
+			  --stxNow <= '0';
 			  
 				stxData_en <= '1';
 				stxData_reg <= rxData;
@@ -206,13 +221,14 @@ BEGIN
 					-- Nothing yet
 					cmdNow <= '1';
 					nextState <= AStart; 
+					--nextState <= FORMATTING; 
 				ELSE
 				  rxDone <= '0';
 				  
 					IF rxnow = '1' THEN -- If data is ready to read
 						-- Every keystroke needs to be printed
 						
-            --rxDone <= '1';
+						--rxDone <= '1';
 						
 						IF rxData(7 DOWNTO 4) = "0011" AND (rxData(3 DOWNTO 0) > "0000" OR rxData(3 DOWNTO 0) < "1001") THEN -- Check if byte is a valid ascii integer
 							-- The 3 NNN digits
@@ -232,15 +248,18 @@ BEGIN
 
 							counter_enable <= '1';
 							
-							--stxNow <= '1';
+							stxNow <= '1';
 							
 							stxData_en <= '1';
 							stxData_reg <= rxData;				
 							
 							--nextState <= STXDATA_WAIT;
-							nextState <= TEMP;
+							nextState <= VALIDINPUT;
 						ELSE
-							nextState <= FIRST;
+							stxData_en <= '1';
+							stxData_reg <= rxData;
+							
+							nextState <= BADINPUT;
 						END IF;
 					ELSE
 						nextState <= SECOND;
@@ -257,6 +276,13 @@ BEGIN
 					cmdNow <= '1';
 					nextState <= AStart;
 				END IF;
+				
+			WHEN FORMATTING =>
+			   startFormat <=	'1';
+			   IF finishFormat = '1' THEN
+			       startFormat <= '0';
+			       nextState <= AStart;
+			   END IF;
  
 				-- Final handshaking acknologement for the dataProc module
 			WHEN AFinish => 
@@ -356,11 +382,14 @@ BEGIN
 	END PROCESS; -- counter
 	-----------------------------------------------------
 	-- Change state on every rising clock edge
-	seq_state : PROCESS(clk, reset)
+	seq_state : PROCESS(clk)
 	BEGIN
-		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
-			curState <= INIT;
-		ELSIF clk'EVENT AND clk = '1' THEN
+--		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+--			curState <= INIT;
+--		ELSIF clk'EVENT AND clk = '1' THEN
+--			curState <= nextState;
+--		END IF;
+		IF clk'EVENT AND clk = '1' THEN
 			curState <= nextState;
 		END IF;
 	END PROCESS; -- seq
