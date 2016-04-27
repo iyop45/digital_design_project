@@ -35,6 +35,15 @@ ENTITY cmdProc IS
 END cmdProc;
 
 ARCHITECTURE behaviour OF cmdProc IS
+  TYPE state_type IS (INIT, SENDING, WAITING); 
+    
+	SIGNAL curState, nextState : state_type;
+	SIGNAL counter_enable : std_logic := '0';
+	SIGNAL counter_reset : std_logic := '0';
+	SIGNAL count : integer := 0;
+	
+	SIGNAL startFormat, finishFormat : std_logic;
+	
 	-- Signals between sub components
 	SIGNAL aNow : std_logic := '0';
 	SIGNAL aRecieve : std_logic := '0';
@@ -82,6 +91,9 @@ BEGIN
 			stxnow => stxnow_cmdParse, 
 			stxdone => stxdone, 
 			numWords_bcd => numWords_bcd, 
+			
+			startFormat => startFormat,
+			finishFormat => finishFormat,
  
 			cmdNow => aNow, 
 			cmdRecieve => aRecieve, 
@@ -166,7 +178,9 @@ BEGIN
 	tx_print : PROCESS(clk)
 	BEGIN
 		IF clk'EVENT AND clk = '1' THEN
-		  
+		  --IF startFormat = '0' THEN
+			txNow <= '0';
+			txData <= "11111111";
 			-- set Tx inputs to value of internal signal
 			IF dataProc_TxHold = '1' THEN
 				txNow <= stxNow_dataProc;
@@ -185,10 +199,75 @@ BEGIN
  
 			-- set signal to value of Tx outputs
 			stxDone <= txDone;
+			
+			--END IF;
 		ELSE NULL;
 		END IF;
- 
 	END PROCESS;
+		
+	combi_nextState : PROCESS(clk, curState, startFormat)
+	BEGIN
+	  counter_enable <= '0';
+	  counter_reset <= '0';
+	  finishFormat <= '0';
+	  
+		CASE curState IS
+			WHEN INIT => 
+			  IF startFormat = '1' THEN
+			     finishFormat <= '0';
+			     nextState <= SENDING; 
+			  ELSE
+			     nextState <= INIT;
+			  END IF;
+			 
+		  WHEN SENDING =>
+		    finishFormat <= '0';
+				counter_enable <= '1';
+				
+				CASE count IS
+					WHEN 0 | 7 => 
+				    txData <= "00001010";
+				  WHEN 1 | 8 =>
+				    txData <= "00001101";
+				  WHEN 2 | 3 | 4 | 5 | 6 =>
+				    txData <= "00111101";
+				  WHEN OTHERS =>
+				    finishFormat <= '1';
+				    counter_reset <= '1';
+				    nextState <= INIT;
+				END CASE;  
+		    
+		  WHEN WAITING =>
+		    finishFormat <= '0';
+		    txNow <= '1';
+		    nextState <= SENDING;
+		    
+			WHEN OTHERS =>
+			  finishFormat <= '1';
+				nextstate <= INIT;
+ 
+		END CASE;
+	END PROCESS;
+	
+	-----------------------------------------------------
+	-- Integer counter, primarily used for counting 3Ns in ANNN command
+	counter : PROCESS(clk, counter_enable, counter_reset)
+	BEGIN
+		IF counter_reset = '1' THEN
+			count <= 0;
+		ELSIF rising_edge(clk) AND counter_enable = '1' THEN
+			count <= count + 1;
+		END IF;
+	END PROCESS; -- counter
+	-----------------------------------------------------
+	-- Change state on every rising clock edge
+	seq_state : PROCESS(clk)
+	BEGIN
+		IF clk'EVENT AND clk = '1' THEN
+			curState <= nextState;
+		END IF;
+	END PROCESS; -- seq	
  
 	END;
+
 
