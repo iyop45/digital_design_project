@@ -143,9 +143,9 @@ BEGIN
 	-----------------------------------------------------
 	seq_state : PROCESS (clk, reset)
 	BEGIN
-		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
-			curState <= S0;
-		ELSIF clk'EVENT AND clk = '1' THEN
+		--IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+		--	curState <= S0;
+		IF clk'EVENT AND clk = '1' THEN
 			curState <= nextState;
 		END IF;
 	END PROCESS; -- stateChange
