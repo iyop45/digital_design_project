@@ -22,7 +22,7 @@ END dataConsume;
 
 ARCHITECTURE detectorArch OF dataConsume IS
 
-	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6);
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7);
 	SIGNAL curState, nextState : state_type;
 	SIGNAL peakvalue, peakValue_reg : std_logic_vector(7 DOWNTO 0) := "00000000";
 	SIGNAL ctrlOut_reg, equal, peakValueSmaller, shift_enable, store_enable, count_enable, count_reset, start_enable, subtract_enable, Toggle, c_en, indexpk_en, peakValue_en, startGet : std_logic := '0';
@@ -39,13 +39,14 @@ ARCHITECTURE detectorArch OF dataConsume IS
 	SIGNAL hold_reg : std_logic := '0';
 	SIGNAL hold : std_logic := '0';
 
-	SIGNAL byte_en : std_logic := '0';
+	SIGNAL byte_en, byte_reset : std_logic := '0';
 	SIGNAL byte_reg : std_logic_vector(7 DOWNTO 0) := "00000000";
 
 	SIGNAL maxIndex_en : std_logic := '0';
 	SIGNAL maxIndex_reg : BCD_ARRAY_TYPE(2 DOWNTO 0);
 
 	SIGNAL counterOut, numWords, indexPk_bcd : std_logic_vector(11 DOWNTO 0);
+	SIGNAL FirstTime : std_logic := '0';
 
 	--curState - Current State.
 	--nextState - next State.
@@ -104,6 +105,7 @@ BEGIN
 		hold_reg <= '0';
 
 		byte_en <= '0';
+		byte_reset <= '0';
 		byte_reg <= "00000000";
 
 		--maxIndex <= ("0000", "0000", "0000");
@@ -119,24 +121,29 @@ BEGIN
 			WHEN S0 => 
 				seqDone <= '0';
 				count_reset <= '1';
-				--Checks to see if a start command has been recieved before starting the retreival process.
-				IF startGet = '1' THEN
-					--ctrlOut_reg <= '0';
-					Toggle <= '0';
-					shift_enable <= '0';
-					store_enable <= '0';
+				
+				  IF startGet = '1' THEN
+					 --ctrlOut_reg <= '0';
+					 Toggle <= '0';
+					 shift_enable <= '0';
+					 store_enable <= '0';
 
-					hold_en <= '1';
-					hold_reg <= '1';
+					 hold_en <= '1';
+					 hold_reg <= '1';
 
-					nextState <= S1;
-				ELSE NULL;
+				  	nextState <= S1;
+					
+				  ELSIF FirstTime = '0' THEN
+				    byte_reset <= '1';
+				    nextState <= S0;
+				  ELSE NULL;
 				END IF;
 
 				--Checks to see if all of the data has been processed by the data generator.
 			WHEN S1 => 
 				count_reset <= '0';
 				dataReady <= '0';
+				FirstTime <= '1';
 				--If all of the data has been processed then the final data values are passed to the command processor.
 				--std_logic_vector(unsigned(counter1(3 DOWNTO 0)) - ("0010"))
 				IF std_logic_vector(unsigned(counterOut(11 DOWNTO 0)) + ("000000000001")) = numWords THEN
@@ -193,9 +200,10 @@ BEGIN
 				--Checks if the start signal is high and if true then send the next byte in sequence to the command processor.
 			WHEN S4 => 
 				--subtract_enable <= '0';
-				nextState <= S6;
+				
 				IF startGet = '1' THEN	
-				  dataready <= '1'; 
+				  nextState <= S7;
+				  --dataready <= '1'; 
 					IF index /= 0 THEN
 						byte_en <= '1';
 						byte_reg <= allData(start_index - 1);
@@ -204,8 +212,13 @@ BEGIN
 						byte_reg <= allData(0);
 					--startGet <= '0';
 					END IF;
-				ELSE NULL;
+				ELSE
+				nextState <= S6;
 				END IF;
+				
+			WHEN S7 => 
+				dataready <= '1';
+				nextState <= S6; 
 
 				--Enters this state to assert that the data sequence and peak are ready to be outputted.
 			WHEN S5 => 
@@ -269,35 +282,39 @@ BEGIN
 	-- Registers to stop latches from being inferred
 	reg : PROCESS (clk, hold_en, byte_en, maxIndex_en, c_en, indexPk_en, peakValue_en, chold_en)
 	BEGIN
-		IF rising_edge(clk) AND hold_en = '1' THEN
-			hold <= hold_reg;
-		END IF;
+		IF rising_edge(clk) THEN 
+		  IF hold_en = '1' THEN
+			 hold <= hold_reg;
+	   	END IF;
+      
+      IF  byte_reset = '1' THEN
+			 byte <= "11011101";
+		  ELSIF  byte_en = '1' THEN
+			 byte <= byte_reg;
+		  END IF;
 
-		IF rising_edge(clk) AND byte_en = '1' THEN
-			byte <= byte_reg;
-		END IF;
+		  IF chold_en = '1' THEN
+			 chold <= chold_reg;
+		  END IF;
 
-		IF rising_edge(clk) AND chold_en = '1' THEN
-			chold <= chold_reg;
-		END IF;
+		  IF c_en = '1' THEN
+			 c1 <= c1_reg;
+			 c2 <= c2_reg;
+			 c3 <= c3_reg;
+		  END IF;
 
-		IF rising_edge(clk) AND c_en = '1' THEN
-			c1 <= c1_reg;
-			c2 <= c2_reg;
-			c3 <= c3_reg;
-		END IF;
+		  IF indexPk_en = '1' THEN
+			 indexPk <= indexPk_reg;
+		  END IF;
 
-		IF rising_edge(clk) AND indexPk_en = '1' THEN
-			indexPk <= indexPk_reg;
-		END IF;
+		  IF peakValue_en = '1' THEN
+			 peakValue <= peakValue_reg;
+		  END IF;
 
-		IF rising_edge(clk) AND peakValue_en = '1' THEN
-			peakValue <= peakValue_reg;
-		END IF;
-
-		IF rising_edge(clk) AND maxIndex_en = '1' THEN
-			maxIndex <= maxIndex_reg;
-		END IF;
+		  IF maxIndex_en = '1' THEN
+			 maxIndex <= maxIndex_reg;
+		  END IF;
+	 END IF;
 	END PROCESS;
 	------------------------------------------------------
 	--Used to subtract one bit / value from the current index in oder to correctly adjust the value of the peak index.
