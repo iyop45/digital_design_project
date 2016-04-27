@@ -66,17 +66,11 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL hasProcessedACommand_reg : std_logic := '0';
 	SIGNAL hasProcessedACommand : std_logic := '0';
 	
-	SIGNAL hasSetRxDoneHigh : std_logic := '0';
-	SIGNAL hasSetRxDoneHigh_en : std_logic := '0';
-	SIGNAL hasSetRxDoneHigh_reg : std_logic := '0';
-	
 	SIGNAL stxData_en : std_logic := '0';
 	SIGNAL stxData_reg : std_logic_vector (7 DOWNTO 0) := "11111111"; 
 BEGIN
 	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve, numWords_bcd_reg, hasProcessedACommand)
 	BEGIN 
-	  hasSetRxDoneHigh_reg <= '0';
-	  hasSetRxDoneHigh_en <= '0';
 	  rxDone <= '0';
 	  
 		stxNow <= '0';
@@ -189,9 +183,7 @@ BEGIN
 					nextstate <= STXDATA_WAIT;
 				END IF;	
  
-			WHEN FIRST => 
-			  --hasSetRxDoneHigh_en <= '1';
-			  --hasSetRxDoneHigh_reg <= '0';			  
+			WHEN FIRST => 		  
 			  
 			  rxDone <= '0';
 			  
@@ -334,7 +326,7 @@ BEGIN
 
 	-----------------------------------------------------	
 	-- Registers to stop latches from being inferrred
-	reg : PROCESS(clk, numWords_en, numWords_bcd_reg, numWords_bcd_reset, hasProcessedACommand_en, hasSetRxDoneHigh_en, stxData_en)
+	reg : PROCESS(clk, numWords_en, numWords_bcd_reg, numWords_bcd_reset, hasProcessedACommand_en, stxData_en)
 	BEGIN
 --	  IF rising_edge(clk) AND numWords_bcd_reset = '1' THEN
 --	    numWords_bcd(0) <= "0000";
@@ -357,10 +349,6 @@ BEGIN
     IF rising_edge(clk) AND numWords_en = 3 THEN
       numWords_bcd(0) <= numWords_bcd_reg(2);
     END IF;    
-		
-	  IF rising_edge(clk) AND hasSetRxDoneHigh_en = '1' THEN
-      hasSetRxDoneHigh <= hasSetRxDoneHigh_reg;
-		END IF;
 
 	  IF rising_edge(clk) AND stxData_en = '1' THEN
       stxData <= stxData_reg;
