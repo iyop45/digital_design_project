@@ -26,9 +26,6 @@ ENTITY cmdParse IS
 		stxdone : IN std_logic;
 		numWords_bcd : OUT BCD_ARRAY_TYPE(2 DOWNTO 0);
 		
-		startFormat : OUT std_logic;
-		finishFormat : IN std_logic;
- 
 		cmdNow : OUT std_logic; 
 		cmdRecieve : IN std_logic;
  
@@ -55,7 +52,7 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	-- No interruption while processing the NNN bytes
 	-- Each byte printing in hexadecimal format
  
-	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake, VALIDINPUT, BADINPUT, FORMATTING); 
+	TYPE state_type IS (INIT, FIRST, STXDATA_WAIT, SECOND, AStart, AFinish, LShake, PShake, VALIDINPUT, BADINPUT, SPACE, STXDATA_WAIT_SPACE); 
 	SIGNAL curState, nextState : state_type;
 	SIGNAL counter_enable : std_logic := '0';
 	SIGNAL counter_reset : std_logic := '0';
@@ -74,12 +71,10 @@ ARCHITECTURE parseCommands OF cmdParse IS
 	SIGNAL hasSetRxDoneHigh_reg : std_logic := '0';
 	
 	SIGNAL stxData_en : std_logic := '0';
-	SIGNAL stxData_reg : std_logic_vector (7 DOWNTO 0) := "00000000"; 
+	SIGNAL stxData_reg : std_logic_vector (7 DOWNTO 0) := "11111111"; 
 BEGIN
 	combi_nextState : PROCESS(clk, curState, rxnow, rxData, seqdone, count, stxDone, cmdRecieve, lRecieve, pRecieve, numWords_bcd_reg, hasProcessedACommand)
-	BEGIN
-	  startFormat <= '0';
-	  
+	BEGIN 
 	  hasSetRxDoneHigh_reg <= '0';
 	  hasSetRxDoneHigh_en <= '0';
 	  rxDone <= '0';
@@ -219,9 +214,13 @@ BEGIN
 			WHEN SECOND => 
 				IF count = 3 THEN
 					-- Nothing yet
-					cmdNow <= '1';
-					nextState <= AStart; 
-					--nextState <= FORMATTING; 
+					--cmdNow <= '1';
+					
+					stxData_en <= '1';
+					stxData_reg <= "00100000";		
+					
+					nextState <= SPACE; 			
+					
 				ELSE
 				  rxDone <= '0';
 				  
@@ -265,6 +264,21 @@ BEGIN
 						nextState <= SECOND;
 					END IF;
 				END IF;
+				
+			WHEN SPACE =>
+			   stxNow <= '1';
+			   cmdNow <= '1';
+			   nextState <= STXDATA_WAIT_SPACE;
+			   
+			WHEN STXDATA_WAIT_SPACE =>
+				stxData_en <= '1';
+				stxData_reg <= rxData;
+			  
+				IF stxDone = '0' THEN --- waits until Tx modules is sending
+					nextstate <= AStart;
+				ELSE
+					nextstate <= STXDATA_WAIT_SPACE;
+				END IF;				   
  
 				-- Initial 3-way handshaking protocol for the dataProc module
 			WHEN AStart => 
@@ -276,13 +290,6 @@ BEGIN
 					cmdNow <= '1';
 					nextState <= AStart;
 				END IF;
-				
-			WHEN FORMATTING =>
-			   startFormat <=	'1';
-			   IF finishFormat = '1' THEN
-			       startFormat <= '0';
-			       nextState <= AStart;
-			   END IF;
  
 				-- Final handshaking acknologement for the dataProc module
 			WHEN AFinish => 
@@ -325,13 +332,6 @@ BEGIN
 		
 	END PROCESS; -- combi_nextState 
 
---  rxReader : PROCESS(clk, hasReadRxData)
---  BEGIN
---    IF rising_edge(clk) AND hasReadRxData = '1' THEN
---      rxDone <= '1';
---      hasReadRxData <= '0';
---    END IF;
---  END PROCESS;
 	-----------------------------------------------------	
 	-- Registers to stop latches from being inferrred
 	reg : PROCESS(clk, numWords_en, numWords_bcd_reg, numWords_bcd_reset, hasProcessedACommand_en, hasSetRxDoneHigh_en, stxData_en)
