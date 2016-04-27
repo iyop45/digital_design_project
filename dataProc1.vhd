@@ -5,6 +5,7 @@
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
+--use ieee.std_logic_arith.all;
 
 USE ieee.numeric_std.ALL; -- additional debug
 
@@ -31,19 +32,15 @@ ENTITY dataProc IS
 END dataProc;
 
 ARCHITECTURE processData OF dataProc IS
-	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10);--
+	TYPE state_type IS (S0, S1, S2, S3, S4, S5, S6, S7, S8, S9);--
 	SIGNAL curState, nextState : state_type;
 	SIGNAL seqDoneGet : std_logic;
-	SIGNAL BYTENEW : std_logic_vector(7 downto 0);
-  SIGNAL counter_enable : std_logic := '0';
-	SIGNAL counter_reset : std_logic := '0';
-	SIGNAL count : INTEGER := 0;
 BEGIN
 	combi_nextState : PROCESS(clk, curState, cmdNow, dataready, byte, stxDone, seqDone, seqDoneGet)
 	BEGIN
 		cmdRecieve <= '0';
 		start <= '0';
-		stxData <= BYTENEW;
+		stxData <= byte;
 		stxNow <= '0';
 		TxHold <= '1';
 	
@@ -80,15 +77,13 @@ BEGIN
 					nextstate <= S3; 
 				END IF;
  
----------------------------------------------------------------------------------------
 			WHEN S4 => 
-			  counter_enable <= '0';
-				stxData <= BYTENEW; --- gives the byte given by the data procossor to the Tx module
+				stxData <= byte; --- gives the byte given by the data procossor to the Tx module
 				stxNow <= '1'; ---issues a send command
 				nextstate <= S5;
 				
 			WHEN S5 =>
-				stxData <= BYTENEW;
+				stxData <= byte;
 				stxNow <= '0';
 				IF stxDone = '0' THEN --- waits until Tx modules is sending
 					nextstate <= S6;
@@ -98,42 +93,29 @@ BEGIN
 
  
 			WHEN S6 => --sets stxNow to 0 and waits to issue the next send 
-				stxData <= BYTENEW;
+				stxData <= byte;
 				IF stxDone = '1' THEN --- waits until Tx modules ready to send again
-          nextstate <= S7;
+					nextstate <= S7;
 				ELSE
 					nextstate <= S6;
-				END IF;	
-	    
-		  WHEN S7 =>
-		     counter_enable <= '1';
-		    	IF count = 4 THEN
-					 nextstate <= S8;
-				 ELSE 
-					 nextstate <= S4;
-				 END IF;
-				
+				END IF;
 				
  
- -------------------------------------------------------------------------------
-			WHEN S8 => -- adds a space after every character and issue a send command
-			  counter_enable <= '0';
-			  counter_reset <= '1';
+			WHEN S7 => -- adds a space after every character and issue a send command
 				stxData <= x"20";
 				stxNow <= '1';
-				nextstate <= S9;
+				nextstate <= S8;
 				
-			WHEN S9 =>
-			  counter_reset <= '0';
+			WHEN S8 =>
 			  stxData <= x"20";
 				stxNow <= '0';
 				IF stxDone = '0' THEN --- waits until Tx modules is sending
-					nextstate <= S10;
-				ELSE
 					nextstate <= S9;
+				ELSE
+					nextstate <= S8;
 				END IF;
 
-			WHEN S10 =>
+			WHEN S9 =>
 			  stxData <= x"20"; 
 				IF stxDone = '1' THEN ---waits until Tx has sent the space
 				  IF seqDoneGet = '1' THEN --- checks to see if all words have been processed
@@ -142,7 +124,7 @@ BEGIN
 					 nextstate <= S2;
 				  END IF;
         ELSE
-          nextstate <= S10;
+          nextstate <= S9;
         END IF ;
         
 		END CASE;
@@ -161,35 +143,14 @@ BEGIN
 	-----------------------------------------------------
 	seq_state : PROCESS (clk, reset)
 	BEGIN
-		IF reset = '1' AND clk'EVENT AND clk = '1' THEN
-			curState <= S0;
-		ELSIF clk'EVENT AND clk = '1' THEN
+		--IF reset = '1' AND clk'EVENT AND clk = '1' THEN
+		--	curState <= S0;
+		IF clk'EVENT AND clk = '1' THEN
 			curState <= nextState;
 		END IF;
 	END PROCESS; -- stateChange
 	----------------------------------------------------- 
-	counter : PROCESS(clk, counter_enable, counter_reset)
-	BEGIN
-		IF counter_reset = '1' THEN
-			count <= 0;
-			--counter_reset <= '0';
-		ELSIF rising_edge(clk) AND counter_enable = '1' AND count < 4 THEN
-			count <= count + 4;
-		END IF;
-	END PROCESS; -- counter
-	----------------------------------------------------- 
-	byte_test: process(byte, count)
-	BEGIN
-	  IF byte((7-count) downto (4-count)) < "1010" AND count < 8 THEN
-	    BYTENEW <= "0011" & byte((7-count) downto (4-count));
-	    
-	  ELSIF byte((7-count) downto (4-count)) > "1001" AND count < 8 THEN
-	    BYTENEW <= std_logic_vector(unsigned(  std_logic_vector'("0011"&byte((7-count) downto (4-count))))  + ("00000111"));
-	    
-	  END IF;   
-	END PROCESS; -- converting byte to hex 
-	
+ 
 	END; -- processData
-
 
 
